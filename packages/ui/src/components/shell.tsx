@@ -99,7 +99,7 @@ export function Shell({
   return (
     <div className="min-h-dvh md:flex">
       {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-zinc-800 p-4 md:flex md:min-h-dvh">
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-zinc-800/50 bg-gradient-to-b from-zinc-900/50 to-zinc-950/50 p-4 md:flex md:min-h-dvh">
         <div className="mb-8 flex items-center gap-3 px-2 text-zinc-100">
           <QccLogo size={34} />
           <div>
@@ -112,22 +112,22 @@ export function Shell({
             <Link
               key={it.href}
               href={it.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 ${
                 isActive(it.href)
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                  ? "bg-zinc-800/50 text-white border-l-2 border-indigo-500 pl-2.5 rounded-l-none"
+                  : "text-zinc-400 hover:bg-zinc-900/30 hover:text-zinc-200"
               }`}
             >
-              <Icon name={it.icon} className="h-5 w-5" />
+              <Icon name={it.icon} className={`h-5 w-5 ${isActive(it.href) ? "text-indigo-400" : ""}`} />
               {it.label}
             </Link>
           ))}
         </nav>
-        <div className="mt-4 border-t border-zinc-800 pt-4">
+        <div className="mt-4 border-t border-zinc-800/60 pt-4">
           <div className="px-2 text-sm font-medium text-zinc-200">{fullName}</div>
           <div className="px-2 text-xs text-zinc-500">{roleLabel}</div>
-          <form action={logout} className="mt-3 px-2">
-            <button className="text-xs text-zinc-500 underline hover:text-zinc-300">
+          <form action={logout} className="mt-3">
+            <button className="w-full text-center rounded-md border border-zinc-800 bg-zinc-950/40 py-1.5 text-xs font-semibold text-zinc-400 transition hover:border-zinc-700 hover:bg-zinc-900 hover:text-zinc-200">
               Sign out
             </button>
           </form>
@@ -143,7 +143,7 @@ export function Shell({
         <div className="flex items-center gap-3">
           <span className="text-xs text-zinc-400">{roleLabel}</span>
           <form action={logout}>
-            <button className="text-xs text-zinc-500 underline">Sign out</button>
+            <button className="text-xs text-zinc-500 underline hover:text-zinc-300">Sign out</button>
           </form>
         </div>
       </header>
@@ -158,8 +158,8 @@ export function Shell({
           <Link
             key={it.href}
             href={it.href}
-            className={`flex min-w-14 flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-[10px] font-medium ${
-              isActive(it.href) ? "text-white" : "text-zinc-500"
+            className={`flex min-w-14 flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-[10px] font-medium transition ${
+              isActive(it.href) ? "text-indigo-400" : "text-zinc-500"
             }`}
           >
             <Icon name={it.icon} className="h-5 w-5" />

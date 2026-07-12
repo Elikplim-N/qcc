@@ -7,6 +7,7 @@ import { db, fellowshipAttendanceDays } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { canRecordAttendance } from "@qcc/core/permissions";
 import { getBacentaScope, logAudit } from "@qcc/core/scope";
+import { uploadPhoto } from "@qcc/core/storage";
 
 // Bacenta leader reports fellowship (attendance, income, tithers, photo, etc.)
 // Per-member ticking stays in Poimen; this upserts the same fellowship day.
@@ -29,9 +30,8 @@ export async function submitFellowshipReportAction(formData: FormData) {
     throw new Error("You cannot report fellowship for this bacenta.");
   }
 
-  // TODO: Handle photo upload to cloud storage (not implemented in this version)
-  // For now, just store the filename or placeholder
-  const photoUrl = photoFile?.name ?? null;
+  const photoUrl =
+    photoFile && photoFile.size > 0 ? await uploadPhoto(photoFile, "fellowship") : null;
 
   const existing = await db.query.fellowshipAttendanceDays.findFirst({
     where: and(

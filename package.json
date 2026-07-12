@@ -14,7 +14,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "db:list-leaders": "tsx scripts/list-leaders.ts"
   },
   "devDependencies": {
     "dotenv": "^17.2.3",

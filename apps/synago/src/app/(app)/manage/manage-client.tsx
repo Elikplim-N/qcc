@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { StatusBadge } from "@qcc/ui/components/status-badge";
+import { Modal } from "@qcc/ui/components/modal";
 import {
   createBacentaAction,
   createCouncilAction,
@@ -13,7 +14,7 @@ interface ManageClientProps {
   visibleCouncils: any[];
   allGovs: any[];
   allBacentas: any[];
-  countByBacenta: Map<string, number>;
+  countByBacenta: Map<string | null, number>;
   creatableCouncils: any[];
   creatableGovs: any[];
   canCreateCouncil: boolean;
@@ -54,13 +55,11 @@ export function ManageClient({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-bold">Manage hierarchy</h1>
-        <div className="flex items-center gap-2">
-          <Link href="/manage/leaders" className="btn-secondary">
-            Leaders & roles →
-          </Link>
-        </div>
+        <Link href="/manage/leaders" className="btn-secondary w-full sm:w-auto">
+          Leaders & roles →
+        </Link>
       </div>
 
       {/* Hierarchy Tree */}
@@ -85,12 +84,12 @@ export function ManageClient({
                           <Link
                             key={b.id}
                             href={`/manage/bacentas/${b.id}`}
-                            className="flex items-center justify-between rounded border border-zinc-700/50 px-3 py-2 text-sm transition hover:border-zinc-600 hover:bg-zinc-800/30"
+                            className="flex flex-wrap items-center justify-between gap-1 rounded border border-zinc-700/50 px-3 py-2 text-sm transition hover:border-zinc-600 hover:bg-zinc-800/30"
                           >
-                            <span className="flex items-center gap-2">
+                            <span className="flex items-center gap-2 truncate">
                               {b.name} <StatusBadge value={b.area} />
                             </span>
-                            <span className="text-xs text-zinc-500">
+                            <span className="shrink-0 text-xs text-zinc-500">
                               {countByBacenta.get(b.id) ?? 0} members
                             </span>
                           </Link>
@@ -279,38 +278,5 @@ export function ManageClient({
         </Modal>
       )}
     </div>
-  );
-}
-
-function Modal({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      <div
-        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="card w-full max-w-md space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">{title}</h2>
-            <button
-              onClick={onClose}
-              className="text-zinc-400 transition hover:text-zinc-200"
-            >
-              ✕
-            </button>
-          </div>
-          {children}
-        </div>
-      </div>
-    </>
   );
 }

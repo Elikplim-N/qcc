@@ -1,6 +1,6 @@
-import { count } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 
-import { db, bacentas, councils, governorships, members } from "@qcc/db";
+import { db, bacentas, councils, governorships, leaders, members } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { canCreateCouncil } from "@qcc/core/permissions";
 import { ManageClient } from "./manage-client";
@@ -11,7 +11,7 @@ export default async function ManagePage() {
     return <p className="card text-sm text-zinc-400">Outside your role.</p>;
   }
 
-  const [allCouncils, allGovs, allBacentas, memberCounts] = await Promise.all([
+  const [allCouncils, allGovs, allBacentas, memberCounts, activeLeaders] = await Promise.all([
     db.select().from(councils).orderBy(councils.name),
     db.select().from(governorships).orderBy(governorships.name),
     db.select().from(bacentas).orderBy(bacentas.name),
@@ -19,12 +19,34 @@ export default async function ManagePage() {
       .select({ bacentaId: members.bacentaId, n: count() })
       .from(members)
       .groupBy(members.bacentaId),
+    db
+      .select({
+        councilId: leaders.councilId,
+        governorshipId: leaders.governorshipId,
+        bacentaId: leaders.bacentaId,
+        firstName: members.firstName,
+        lastName: members.lastName,
+      })
+      .from(leaders)
+      .innerJoin(members, eq(leaders.memberId, members.id))
+      .where(eq(leaders.isActive, true)),
   ]);
   const countByBacenta = new Map(
     memberCounts
       .filter((r) => r.bacentaId !== null)
       .map((r) => [r.bacentaId as string, r.n]),
   );
+
+  // Each position holds at most one active leader; null/missing means vacant.
+  const councilLeaderName: Record<string, string> = {};
+  const govLeaderName: Record<string, string> = {};
+  const bacentaLeaderName: Record<string, string> = {};
+  for (const l of activeLeaders) {
+    const name = `${l.firstName} ${l.lastName}`;
+    if (l.councilId) councilLeaderName[l.councilId] = name;
+    if (l.governorshipId) govLeaderName[l.governorshipId] = name;
+    if (l.bacentaId) bacentaLeaderName[l.bacentaId] = name;
+  }
 
   // Scope the tree
   const visibleCouncils = allCouncils.filter((c) =>
@@ -53,6 +75,9 @@ export default async function ManagePage() {
       allGovs={allGovs}
       allBacentas={allBacentas}
       countByBacenta={countByBacenta}
+      councilLeaderName={councilLeaderName}
+      govLeaderName={govLeaderName}
+      bacentaLeaderName={bacentaLeaderName}
       creatableCouncils={creatableCouncils}
       creatableGovs={creatableGovs}
       canCreateCouncil={canCreateCouncil(leader)}

@@ -230,17 +230,24 @@ export async function promoteLeaderAction(formData: FormData) {
   revalidatePath("/manage/leaders");
 }
 
-export async function setLeaderActiveAction(formData: FormData) {
+// Removing a leader frees up their position (council/governorship/bacenta
+// becomes vacant, promotable to someone else) and blocks their login. The
+// leader row itself is kept — never deleted — so historical records they
+// created (attendance, premobilisations, etc.) stay attributed and intact.
+export async function removeLeaderAction(formData: FormData) {
   const actor = await requireLeader();
   const leaderId = str(formData, "leaderId");
-  const active = str(formData, "active") === "true";
   const target = await db.query.leaders.findFirst({ where: eq(leaders.id, leaderId) });
   if (!target) throw new Error("Leader not found.");
   if (!assignableRoles(actor).includes(target.role as Role)) {
     throw new Error("You cannot manage this leader.");
   }
-  if (target.id === actor.id) throw new Error("You cannot deactivate yourself.");
-  await db.update(leaders).set({ isActive: active }).where(eq(leaders.id, leaderId));
-  await logAudit(active ? "leader_activated" : "leader_deactivated", actor.id, "leader", leaderId);
+  if (target.id === actor.id) throw new Error("You cannot remove yourself.");
+  await db
+    .update(leaders)
+    .set({ isActive: false, councilId: null, governorshipId: null, bacentaId: null })
+    .where(eq(leaders.id, leaderId));
+  await logAudit("leader_removed", actor.id, "leader", leaderId);
   revalidatePath("/manage/leaders");
+  revalidatePath("/manage");
 }

@@ -45,9 +45,10 @@ Create **two** Vercel projects from this repo:
 | qcc-synago | `apps/synago` | `DATABASE_URL` |
 | qcc-poimen | `apps/poimen` | `DATABASE_URL` |
 
-Vercel detects the npm workspaces automatically; no other configuration is
-needed (photos are stored as compressed data URLs, so no storage bucket is
-required to start).
+Vercel detects the npm workspaces automatically. Each app includes a
+`vercel.json` file that explicitly configures the build output directory.
+Photos are stored as compressed data URLs, so no storage bucket is required
+to start.
 
 ## Structure & roles
 

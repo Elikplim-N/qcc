@@ -26,9 +26,21 @@ export default async function MemberProfilePage({
   const m = await db.query.members.findFirst({ where: eq(members.id, id) });
   if (!m) notFound();
 
-  const scope = m.bacentaId ? await getBacentaScope(m.bacentaId) : null;
+  const leaderRow = await db.query.leaders.findFirst({
+    where: eq(leaders.memberId, m.id),
+  });
+
+  const displayBacentaId = (leaderRow && leaderRow.role === "bacenta_leader" && leaderRow.bacentaId)
+    ? leaderRow.bacentaId
+    : m.bacentaId;
+
+  const scope = displayBacentaId ? await getBacentaScope(displayBacentaId) : null;
+
+  const isSelf = m.id === leader.memberId;
+  const isCreator = m.createdByLeaderId === leader.id;
+  const isUnassigned = !m.bacentaId;
   const canSee =
-    leader.role === "chief_admin" || (scope && overseesBacenta(leader, scope));
+    leader.role === "chief_admin" || isSelf || isCreator || isUnassigned || (scope && overseesBacenta(leader, scope));
   if (!canSee) {
     return (
       <p className="card text-sm text-zinc-400">
@@ -37,11 +49,7 @@ export default async function MemberProfilePage({
     );
   }
   const canEdit =
-    leader.role === "chief_admin" || (scope && overseesBacenta(leader, scope));
-
-  const leaderRow = await db.query.leaders.findFirst({
-    where: eq(leaders.memberId, m.id),
-  });
+    leader.role === "chief_admin" || isSelf || isCreator || isUnassigned || (scope && overseesBacenta(leader, scope));
 
   const history = await db
     .select({

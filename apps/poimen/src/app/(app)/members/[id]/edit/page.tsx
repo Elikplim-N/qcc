@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 
-import { db, members } from "@qcc/db";
+import { db, members, leaders } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { canManageMembersOf } from "@qcc/core/permissions";
 import { getBacentaScope, getScopedBacentas } from "@qcc/core/scope";
@@ -18,9 +18,21 @@ export default async function EditMemberPage({
   const m = await db.query.members.findFirst({ where: eq(members.id, id) });
   if (!m) notFound();
 
-  const scope = m.bacentaId ? await getBacentaScope(m.bacentaId) : null;
+  const leaderRow = await db.query.leaders.findFirst({
+    where: eq(leaders.memberId, m.id),
+  });
+
+  const displayBacentaId = (leaderRow && leaderRow.role === "bacenta_leader" && leaderRow.bacentaId)
+    ? leaderRow.bacentaId
+    : m.bacentaId;
+
+  const scope = displayBacentaId ? await getBacentaScope(displayBacentaId) : null;
+
+  const isSelf = m.id === leader.memberId;
+  const isCreator = m.createdByLeaderId === leader.id;
+  const isUnassigned = !m.bacentaId;
   const allowed =
-    leader.role === "chief_admin" || (scope && canManageMembersOf(leader, scope));
+    leader.role === "chief_admin" || isSelf || isCreator || isUnassigned || (scope && canManageMembersOf(leader, scope));
   if (!allowed) {
     return (
       <p className="card text-sm text-zinc-400">
@@ -39,7 +51,7 @@ export default async function EditMemberPage({
       <MemberForm
         action={updateMemberAction}
         bacentas={scoped}
-        values={{ ...m }}
+        values={{ ...m, bacentaId: displayBacentaId }}
         submitLabel="Save changes"
       />
     </div>

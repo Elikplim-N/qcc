@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { db, members } from "@qcc/db";
+import { db, members, leaders } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { generateMemberCode } from "@qcc/core/member-code";
 import { canManageMembersOf } from "@qcc/core/permissions";
@@ -79,20 +79,35 @@ export async function updateMemberAction(formData: FormData) {
   });
   if (!existing) throw new Error("Member not found.");
 
-  // Must be able to manage the member's current bacenta (or target one).
+  const leader = await requireLeader();
+  const isSelf = existing.id === leader.memberId;
+  const isCreator = existing.createdByLeaderId === leader.id;
+  const isUnassigned = !existing.bacentaId;
+
   const currentBacentaId = existing.bacentaId;
-  const targetBacentaId = str(formData, "bacentaId") ?? currentBacentaId;
-  let leader;
-  if (targetBacentaId) {
-    leader = await assertCanManage(targetBacentaId);
-  } else {
-    leader = await requireLeader();
-  }
-  if (currentBacentaId && currentBacentaId !== targetBacentaId) {
-    // moving between bacentas — must also oversee the source
-    const src = await getBacentaScope(currentBacentaId);
-    if (!src || !canManageMembersOf(leader, src)) {
-      throw new Error("You cannot move a member out of a bacenta you do not oversee.");
+  const targetBacentaId = str(formData, "bacentaId");
+
+  if (!isSelf && !isCreator && !isUnassigned && leader.role !== "chief_admin") {
+    if (targetBacentaId) {
+      const scope = await getBacentaScope(targetBacentaId);
+      if (!scope || !canManageMembersOf(leader, scope)) {
+        throw new Error("You do not have permission to manage members of this bacenta.");
+      }
+    }
+    if (currentBacentaId && currentBacentaId !== targetBacentaId) {
+      const src = await getBacentaScope(currentBacentaId);
+      if (!src || !canManageMembersOf(leader, src)) {
+        throw new Error("You cannot move a member out of a bacenta you do not oversee.");
+      }
+    }
+  } else if (isUnassigned && !isSelf && leader.role !== "chief_admin") {
+    // If the member is currently unassigned, the leader is trying to claim them.
+    // They must oversee the target bacenta they are claiming them into!
+    if (targetBacentaId) {
+      const scope = await getBacentaScope(targetBacentaId);
+      if (!scope || !canManageMembersOf(leader, scope)) {
+        throw new Error("You do not have permission to claim this member into this bacenta.");
+      }
     }
   }
 
@@ -119,6 +134,17 @@ export async function updateMemberAction(formData: FormData) {
       updatedAt: new Date(),
     })
     .where(eq(members.id, memberId));
+
+  // Sync leadership record if this member is a bacenta_leader
+  const leaderRow = await db.query.leaders.findFirst({
+    where: eq(leaders.memberId, memberId),
+  });
+  if (leaderRow && leaderRow.role === "bacenta_leader") {
+    await db
+      .update(leaders)
+      .set({ bacentaId: targetBacentaId })
+      .where(eq(leaders.id, leaderRow.id));
+  }
 
   await logAudit("member_updated", leader.id, "member", memberId);
   revalidatePath("/members");

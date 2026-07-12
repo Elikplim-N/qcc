@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, ilike, inArray, or, type SQL } from "drizzle-orm";
+import { and, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
 
 import { db, members, leaders } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
@@ -19,10 +19,11 @@ export default async function MembersPage({
 
   const filters: SQL[] = [];
   if (leader.role !== "chief_admin") {
-    if (ids.length === 0) {
-      return <Empty />;
+    const listFilters: SQL[] = [eq(members.createdByLeaderId, leader.id)];
+    if (ids.length > 0) {
+      listFilters.push(inArray(members.bacentaId, ids));
     }
-    filters.push(inArray(members.bacentaId, ids));
+    filters.push(or(...listFilters)!);
   }
   if (bacenta && ids.includes(bacenta)) {
     filters.push(inArray(members.bacentaId, [bacenta]));

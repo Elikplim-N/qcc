@@ -81,11 +81,12 @@ export async function updateMemberAction(formData: FormData) {
 
   const leader = await requireLeader();
   const isSelf = existing.id === leader.memberId;
+  const isCreator = existing.createdByLeaderId === leader.id;
 
   const currentBacentaId = existing.bacentaId;
   const targetBacentaId = str(formData, "bacentaId");
 
-  if (!isSelf && leader.role !== "chief_admin") {
+  if (!isSelf && !isCreator && leader.role !== "chief_admin") {
     if (targetBacentaId) {
       const scope = await getBacentaScope(targetBacentaId);
       if (!scope || !canManageMembersOf(leader, scope)) {

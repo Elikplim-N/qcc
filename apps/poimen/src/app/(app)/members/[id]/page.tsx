@@ -37,8 +37,9 @@ export default async function MemberProfilePage({
   const scope = displayBacentaId ? await getBacentaScope(displayBacentaId) : null;
 
   const isSelf = m.id === leader.memberId;
+  const isCreator = m.createdByLeaderId === leader.id;
   const canSee =
-    leader.role === "chief_admin" || isSelf || (scope && overseesBacenta(leader, scope));
+    leader.role === "chief_admin" || isSelf || isCreator || (scope && overseesBacenta(leader, scope));
   if (!canSee) {
     return (
       <p className="card text-sm text-zinc-400">
@@ -47,7 +48,7 @@ export default async function MemberProfilePage({
     );
   }
   const canEdit =
-    leader.role === "chief_admin" || isSelf || (scope && overseesBacenta(leader, scope));
+    leader.role === "chief_admin" || isSelf || isCreator || (scope && overseesBacenta(leader, scope));
 
   const history = await db
     .select({

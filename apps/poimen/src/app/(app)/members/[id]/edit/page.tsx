@@ -29,8 +29,9 @@ export default async function EditMemberPage({
   const scope = displayBacentaId ? await getBacentaScope(displayBacentaId) : null;
 
   const isSelf = m.id === leader.memberId;
+  const isCreator = m.createdByLeaderId === leader.id;
   const allowed =
-    leader.role === "chief_admin" || isSelf || (scope && canManageMembersOf(leader, scope));
+    leader.role === "chief_admin" || isSelf || isCreator || (scope && canManageMembersOf(leader, scope));
   if (!allowed) {
     return (
       <p className="card text-sm text-zinc-400">

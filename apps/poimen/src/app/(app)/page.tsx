@@ -226,12 +226,14 @@ export default async function PoimenDashboard({
               value={totalGovs}
               icon={ShieldIcon}
               borderColor="border-t-amber-500"
+              href="/hierarchy"
             />
             <Stat
               label="Bacentas"
               value={totalBacentas}
               icon={BranchIcon}
               borderColor="border-t-sky-500"
+              href="/hierarchy"
             />
           </>
         )}

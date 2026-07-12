@@ -7,106 +7,13 @@ import { redirect } from "next/navigation";
 import { db, bacentas, councils, governorships, leaders, members } from "@qcc/db";
 import { requireLeader, type SessionLeader } from "@qcc/core/auth";
 import { hashPassword } from "@qcc/core/password";
-import {
-  canCreateBacenta,
-  canCreateCouncil,
-  canCreateGovernorship,
-  type Role,
-} from "@qcc/core/permissions";
+import { type Role } from "@qcc/core/permissions";
 import { getBacentaScope, logAudit } from "@qcc/core/scope";
 
 function str(fd: FormData, key: string): string {
   return String(fd.get(key) ?? "").trim();
 }
 
-export async function createCouncilAction(formData: FormData) {
-  const leader = await requireLeader();
-  if (!canCreateCouncil(leader)) throw new Error("Only the Chief Admin creates councils.");
-  const name = str(formData, "name");
-  if (!name) throw new Error("Name required.");
-  const [row] = await db.insert(councils).values({ name }).returning({ id: councils.id });
-  await logAudit("council_created", leader.id, "council", row.id, { name });
-  revalidatePath("/manage");
-}
-
-export async function createGovernorshipAction(formData: FormData) {
-  const leader = await requireLeader();
-  const councilId = str(formData, "councilId");
-  if (!councilId || !canCreateGovernorship(leader, councilId)) {
-    throw new Error("You cannot create a governorship in this council.");
-  }
-  const name = str(formData, "name");
-  const area = str(formData, "area") === "area2" ? "area2" : "area1";
-  if (!name) throw new Error("Name required.");
-  const [row] = await db
-    .insert(governorships)
-    .values({ name, councilId, area })
-    .returning({ id: governorships.id });
-  await logAudit("governorship_created", leader.id, "governorship", row.id, { name, area });
-  revalidatePath("/manage");
-}
-
-export async function createBacentaAction(formData: FormData) {
-  const leader = await requireLeader();
-  const governorshipId = str(formData, "governorshipId");
-  const gov = governorshipId
-    ? await db.query.governorships.findFirst({
-        where: eq(governorships.id, governorshipId),
-      })
-    : null;
-  if (
-    !gov ||
-    !canCreateBacenta(leader, { governorshipId: gov.id, councilId: gov.councilId })
-  ) {
-    throw new Error("You cannot create a bacenta in this governorship.");
-  }
-  const name = str(formData, "name");
-  const area = str(formData, "area") === "area2" ? "area2" : "area1";
-  if (!name) throw new Error("Name required.");
-  const [row] = await db
-    .insert(bacentas)
-    .values({
-      name,
-      governorshipId: gov.id,
-      area,
-      momoNumber: str(formData, "momoNumber") || null,
-      momoName: str(formData, "momoName") || null,
-      mobileNetwork: str(formData, "mobileNetwork") || null,
-    })
-    .returning({ id: bacentas.id });
-  await logAudit("bacenta_created", leader.id, "bacenta", row.id, { name, area });
-  revalidatePath("/manage");
-}
-
-export async function updateBacentaAction(formData: FormData) {
-  const leader = await requireLeader();
-  const bacentaId = str(formData, "bacentaId");
-  const scope = bacentaId ? await getBacentaScope(bacentaId) : null;
-  if (
-    !scope ||
-    !canCreateBacenta(leader, {
-      governorshipId: scope.governorshipId,
-      councilId: scope.councilId,
-    })
-  ) {
-    throw new Error("You cannot edit this bacenta.");
-  }
-  await db
-    .update(bacentas)
-    .set({
-      name: str(formData, "name") || scope.name,
-      area: str(formData, "area") === "area2" ? "area2" : "area1",
-      momoNumber: str(formData, "momoNumber") || null,
-      momoName: str(formData, "momoName") || null,
-      mobileNetwork: str(formData, "mobileNetwork") || null,
-    })
-    .where(eq(bacentas.id, bacentaId));
-  await logAudit("bacenta_updated", leader.id, "bacenta", bacentaId);
-  revalidatePath("/manage");
-  redirect("/manage");
-}
-
-// Which roles may the actor assign, and does the target scope fall within theirs?
 function assignableRoles(actor: SessionLeader): Role[] {
   switch (actor.role) {
     case "chief_admin":
@@ -201,7 +108,6 @@ export async function promoteLeaderAction(formData: FormData) {
     }
   }
 
-  // Never duplicate: one leader row per member, keyed off the member ID.
   const existing = await db.query.leaders.findFirst({
     where: eq(leaders.memberId, memberId),
   });
@@ -227,7 +133,8 @@ export async function promoteLeaderAction(formData: FormData) {
     await logAudit("leader_promoted", actor.id, "leader", row.id, { role });
   }
 
-  revalidatePath("/manage/leaders");
+  revalidatePath("/leaders");
+  redirect("/leaders");
 }
 
 export async function setLeaderActiveAction(formData: FormData) {
@@ -236,11 +143,11 @@ export async function setLeaderActiveAction(formData: FormData) {
   const active = str(formData, "active") === "true";
   const target = await db.query.leaders.findFirst({ where: eq(leaders.id, leaderId) });
   if (!target) throw new Error("Leader not found.");
-  if (!assignableRoles(actor).includes(target.role as Role)) {
+  if (!assignableRoles(actor).includes(target.role as any)) {
     throw new Error("You cannot manage this leader.");
   }
   if (target.id === actor.id) throw new Error("You cannot deactivate yourself.");
   await db.update(leaders).set({ isActive: active }).where(eq(leaders.id, leaderId));
   await logAudit(active ? "leader_activated" : "leader_deactivated", actor.id, "leader", leaderId);
-  revalidatePath("/manage/leaders");
+  revalidatePath("/leaders");
 }

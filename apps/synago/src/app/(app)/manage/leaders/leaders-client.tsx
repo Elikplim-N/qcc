@@ -221,12 +221,21 @@ export function LeadersClient({
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="label">Username</label>
-                <input name="username" className="input" autoCapitalize="none" required />
+                <label className="label">Username (optional)</label>
+                <input
+                  name="username"
+                  className="input"
+                  autoCapitalize="none"
+                  placeholder="e.g. kofi.mensah (auto if empty)"
+                />
               </div>
               <div>
-                <label className="label">Password</label>
-                <input name="password" className="input" minLength={8} required />
+                <label className="label">Password (optional)</label>
+                <input
+                  name="password"
+                  className="input"
+                  placeholder="Defaults to 'change-me-now'"
+                />
               </div>
             </div>
 

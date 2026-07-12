@@ -20,7 +20,11 @@ export default async function ManagePage() {
       .from(members)
       .groupBy(members.bacentaId),
   ]);
-  const countByBacenta = new Map(memberCounts.map((r) => [r.bacentaId, r.n]));
+  const countByBacenta = new Map(
+    memberCounts
+      .filter((r) => r.bacentaId !== null)
+      .map((r) => [r.bacentaId as string, r.n]),
+  );
 
   // Scope the tree
   const visibleCouncils = allCouncils.filter((c) =>

@@ -192,9 +192,6 @@ export default async function PoimenDashboard({
             <h1 className="text-2xl font-extrabold tracking-tight text-zinc-100">
               Welcome back, {leader.fullName.split(" ")[0]}
             </h1>
-            <p className="text-sm text-zinc-400 font-medium">
-              Managing members and spiritual paths.
-            </p>
           </div>
           <div className="mt-3 inline-flex items-center gap-2 rounded-lg bg-zinc-950/50 px-3 py-1.5 text-xs font-semibold text-indigo-300 border border-indigo-900/30 md:mt-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

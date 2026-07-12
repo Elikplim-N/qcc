@@ -22,12 +22,19 @@ export default async function DashboardPage() {
 
   const empty = ids.length === 0;
 
-  const [memberCount] = empty
+  const scopeFilter =
+    leader.role === "chief_admin"
+      ? undefined
+      : empty
+        ? undefined
+        : inArray(members.bacentaId, ids);
+
+  const [memberCount] = empty && leader.role !== "chief_admin"
     ? [{ n: 0 }]
     : await db
         .select({ n: count() })
         .from(members)
-        .where(inArray(members.bacentaId, ids));
+        .where(scopeFilter);
 
   const premobs = empty
     ? []

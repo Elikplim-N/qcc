@@ -115,6 +115,7 @@ export default async function PoimenDashboard() {
           value={total}
           icon={UsersIcon}
           borderColor="border-t-indigo-500"
+          href="/members"
         />
         <Stat
           label="Committed"
@@ -122,6 +123,7 @@ export default async function PoimenDashboard() {
           tone="text-emerald-400"
           icon={HeartIcon}
           borderColor="border-t-emerald-500"
+          href="/members?status=committed"
         />
         <Stat
           label="Unstable"
@@ -129,6 +131,7 @@ export default async function PoimenDashboard() {
           tone="text-amber-400"
           icon={AlertTriangleIcon}
           borderColor="border-t-amber-500"
+          href="/members?status=unstable"
         />
         <Stat
           label="Lost"
@@ -136,6 +139,7 @@ export default async function PoimenDashboard() {
           tone="text-red-400"
           icon={XCircleIcon}
           borderColor="border-t-red-500"
+          href="/members?status=lost"
         />
       </div>
 
@@ -205,15 +209,17 @@ function Stat({
   tone,
   icon,
   borderColor,
+  href,
 }: {
   label: string;
   value: number;
   tone?: string;
   icon?: React.ReactNode;
   borderColor?: string;
+  href?: string;
 }) {
-  return (
-    <div className={`card border-t-2 ${borderColor ?? "border-t-zinc-800"} hover:border-zinc-700 hover:bg-zinc-900/40 cursor-pointer`}>
+  const body = (
+    <div className={`card h-full border-t-2 ${borderColor ?? "border-t-zinc-800"} hover:border-zinc-700 hover:bg-zinc-900/40 cursor-pointer`}>
       <div className="flex items-center justify-between">
         <div className="text-xs uppercase tracking-wide text-zinc-500 font-semibold">{label}</div>
         {icon && <div className="text-zinc-400 bg-zinc-950/40 p-1.5 rounded-lg border border-zinc-800/50">{icon}</div>}
@@ -221,4 +227,5 @@ function Stat({
       <div className={`mt-2 text-2xl font-bold tracking-tight ${tone ?? "text-zinc-100"}`}>{value}</div>
     </div>
   );
+  return href ? <Link href={href}>{body}</Link> : body;
 }

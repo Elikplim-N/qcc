@@ -9,9 +9,9 @@ import { StatusBadge } from "@qcc/ui/components/status-badge";
 export default async function MembersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; bacenta?: string }>;
+  searchParams: Promise<{ q?: string; bacenta?: string; status?: string }>;
 }) {
-  const { q, bacenta } = await searchParams;
+  const { q, bacenta, status } = await searchParams;
   const leader = await requireLeader();
   const scoped = await getScopedBacentas(leader);
   const ids = scoped.map((b) => b.id);
@@ -19,14 +19,22 @@ export default async function MembersPage({
 
   const filters: SQL[] = [];
   if (leader.role !== "chief_admin") {
-    const listFilters: SQL[] = [isNull(members.bacentaId)];
+    const listFilters: SQL[] = [];
     if (ids.length > 0) {
       listFilters.push(inArray(members.bacentaId, ids));
     }
-    filters.push(or(...listFilters)!);
+    if (q) {
+      listFilters.push(isNull(members.bacentaId));
+    }
+    if (listFilters.length > 0) {
+      filters.push(or(...listFilters)!);
+    }
   }
-  if (bacenta && ids.includes(bacenta)) {
+  if (bacenta && (leader.role === "chief_admin" || ids.includes(bacenta))) {
     filters.push(inArray(members.bacentaId, [bacenta]));
+  }
+  if (status && ["committed", "unstable", "lost"].includes(status)) {
+    filters.push(eq(members.status, status as "committed" | "unstable" | "lost"));
   }
   if (q) {
     const like = `%${q}%`;
@@ -81,6 +89,12 @@ export default async function MembersPage({
               {b.name}
             </option>
           ))}
+        </select>
+        <select name="status" defaultValue={status ?? ""} className="input max-w-40">
+          <option value="">All statuses</option>
+          <option value="committed">Committed</option>
+          <option value="unstable">Unstable</option>
+          <option value="lost">Lost</option>
         </select>
         <button className="btn-secondary">Filter</button>
       </form>

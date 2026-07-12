@@ -19,6 +19,7 @@ export default async function AppLayout({
   ].includes(leader.role);
   if (pastoral) {
     items.push({ href: "/members", label: "Members", icon: "users" });
+    items.push({ href: "/attendance", label: "Attendance", icon: "check" });
   }
 
   const roleLabel =

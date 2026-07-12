@@ -10,14 +10,18 @@ import {
   createGovernorshipAction,
 } from "./actions";
 
+interface BacentaRow {
+  id: string;
+  name: string;
+  area: string;
+  governorshipName: string;
+  councilName: string;
+  memberCount: number;
+  leaderName?: string;
+}
+
 interface ManageClientProps {
-  visibleCouncils: any[];
-  allGovs: any[];
-  allBacentas: any[];
-  countByBacenta: Map<string | null, number>;
-  councilLeaderName: Record<string, string>;
-  govLeaderName: Record<string, string>;
-  bacentaLeaderName: Record<string, string>;
+  visibleBacentas: BacentaRow[];
   creatableCouncils: any[];
   creatableGovs: any[];
   canCreateCouncil: boolean;
@@ -26,7 +30,7 @@ interface ManageClientProps {
 
 function LeaderTag({ name }: { name?: string }) {
   return name ? (
-    <span className="text-xs text-zinc-500">Led by {name}</span>
+    <span className="text-xs text-zinc-500">{name}</span>
   ) : (
     <span className="badge bg-amber-950 text-amber-300 border border-amber-900/30">
       Vacant
@@ -35,13 +39,7 @@ function LeaderTag({ name }: { name?: string }) {
 }
 
 export function ManageClient({
-  visibleCouncils,
-  allGovs,
-  allBacentas,
-  countByBacenta,
-  councilLeaderName,
-  govLeaderName,
-  bacentaLeaderName,
+  visibleBacentas,
   creatableCouncils,
   creatableGovs,
   canCreateCouncil,
@@ -66,9 +64,6 @@ export function ManageClient({
     closeModal(type);
   };
 
-  const visibleGovs = (councilId: string) =>
-    allGovs.filter((g) => g.councilId === councilId);
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -78,54 +73,51 @@ export function ManageClient({
         </Link>
       </div>
 
-      {/* Hierarchy Tree */}
-      <div className="space-y-4">
-        {visibleCouncils.length === 0 ? (
-          <p className="card text-sm text-zinc-500">No councils yet.</p>
-        ) : (
-          visibleCouncils.map((c) => (
-            <div key={c.id} className="card space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-bold">{c.name}</h2>
-                <LeaderTag name={councilLeaderName[c.id]} />
-              </div>
-              <div className="space-y-2">
-                {visibleGovs(c.id).map((g) => (
-                  <div key={g.id} className="ml-4 rounded-lg border border-zinc-700 p-3">
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <span className="flex items-center gap-2">
-                        <span className="text-sm font-semibold">{g.name}</span>
-                        <StatusBadge value={g.area} />
-                      </span>
-                      <LeaderTag name={govLeaderName[g.id]} />
-                    </div>
-                    <div className="space-y-1">
-                      {allBacentas
-                        .filter((b) => b.governorshipId === g.id)
-                        .map((b) => (
-                          <Link
-                            key={b.id}
-                            href={`/manage/bacentas/${b.id}`}
-                            className="flex flex-wrap items-center justify-between gap-1 rounded border border-zinc-700/50 px-3 py-2 text-sm transition hover:border-zinc-600 hover:bg-zinc-800/30"
-                          >
-                            <span className="flex items-center gap-2 truncate">
-                              {b.name} <StatusBadge value={b.area} />
-                            </span>
-                            <span className="flex shrink-0 items-center gap-2">
-                              <LeaderTag name={bacentaLeaderName[b.id]} />
-                              <span className="text-xs text-zinc-500">
-                                {countByBacenta.get(b.id) ?? 0} members
-                              </span>
-                            </span>
-                          </Link>
-                        ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))
-        )}
+      <div className="card overflow-x-auto p-0">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-zinc-800 text-left text-xs uppercase tracking-wide text-zinc-500">
+              <th className="px-4 py-3 font-semibold">Bacenta</th>
+              <th className="px-4 py-3 font-semibold">Governorship</th>
+              <th className="px-4 py-3 font-semibold">Council</th>
+              <th className="px-4 py-3 font-semibold">Leader</th>
+              <th className="px-4 py-3 font-semibold">Members</th>
+              <th className="px-4 py-3 font-semibold"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-800">
+            {visibleBacentas.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-zinc-500">
+                  No bacentas yet.
+                </td>
+              </tr>
+            ) : (
+              visibleBacentas.map((b) => (
+                <tr key={b.id} className="hover:bg-zinc-800/30">
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <span className="flex items-center gap-2">
+                      {b.name} <StatusBadge value={b.area} />
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-zinc-400">
+                    {b.governorshipName}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-zinc-400">{b.councilName}</td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <LeaderTag name={b.leaderName} />
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-zinc-400">{b.memberCount}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right">
+                    <Link href={`/manage/bacentas/${b.id}`} className="text-indigo-400 hover:underline">
+                      Edit →
+                    </Link>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Creation Buttons */}

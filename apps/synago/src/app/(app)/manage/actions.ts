@@ -200,7 +200,6 @@ export async function promoteLeaderAction(formData: FormData) {
   }
 
   revalidatePath("/manage/leaders");
-  redirect("/manage/leaders");
 }
 
 export async function setLeaderActiveAction(formData: FormData) {

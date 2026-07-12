@@ -2,9 +2,9 @@ import { eq, inArray } from "drizzle-orm";
 
 import { db, bacentas, councils, governorships, leaders, members } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
-import { ROLE_LABELS, type Role } from "@qcc/core/permissions";
+import { type Role } from "@qcc/core/permissions";
 import { getScopedBacentas } from "@qcc/core/scope";
-import { promoteLeaderAction, setLeaderActiveAction } from "../actions";
+import { LeadersClient } from "./leaders-client";
 
 export default async function LeadersPage() {
   const actor = await requireLeader();
@@ -73,133 +73,38 @@ export default async function LeadersPage() {
   const govName = new Map(allGovs.map((g) => [g.id, g.name]));
   const councilName = new Map(allCouncils.map((c) => [c.id, c.name]));
 
-  const visibleLeaders = allLeaders.filter((l) => {
-    if (actor.role === "chief_admin") return true;
-    if (l.bacentaId) return scopedIds.includes(l.bacentaId);
-    if (l.governorshipId) return govOptions.some((g) => g.id === l.governorshipId);
-    if (l.councilId) return l.councilId === actor.councilId;
-    return false;
-  });
+  const visibleLeaders = allLeaders
+    .filter((l) => {
+      if (actor.role === "chief_admin") return true;
+      if (l.bacentaId) return scopedIds.includes(l.bacentaId);
+      if (l.governorshipId) return govOptions.some((g) => g.id === l.governorshipId);
+      if (l.councilId) return l.councilId === actor.councilId;
+      return false;
+    })
+    .map((l) => ({
+      id: l.id,
+      role: l.role as Role,
+      username: l.username,
+      isActive: l.isActive,
+      fullName: `${l.firstName} ${l.lastName}`,
+      scopeLabel: l.bacentaId
+        ? (bacentaName.get(l.bacentaId) ?? "bacenta")
+        : l.governorshipId
+          ? (govName.get(l.governorshipId) ?? "")
+          : l.councilId
+            ? (councilName.get(l.councilId) ?? "")
+            : "",
+    }));
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-xl font-bold">Leaders & roles</h1>
-
-      <div className="card divide-y divide-zinc-800 p-0">
-        {visibleLeaders.length === 0 ? (
-          <p className="p-4 text-sm text-zinc-500">No leaders in your scope.</p>
-        ) : (
-          visibleLeaders.map((l) => (
-            <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-              <div>
-                <div className="text-sm font-medium">
-                  {l.firstName} {l.lastName}{" "}
-                  <span className="text-xs text-zinc-500">@{l.username}</span>
-                </div>
-                <div className="text-xs text-zinc-500">
-                  {ROLE_LABELS[l.role as Role]}
-                  {l.bacentaId ? ` · ${bacentaName.get(l.bacentaId) ?? "bacenta"}` : ""}
-                  {l.governorshipId ? ` · ${govName.get(l.governorshipId) ?? ""}` : ""}
-                  {l.councilId ? ` · ${councilName.get(l.councilId) ?? ""}` : ""}
-                  {!l.isActive ? " · DEACTIVATED" : ""}
-                </div>
-              </div>
-              {l.id !== actor.id ? (
-                <form action={setLeaderActiveAction}>
-                  <input type="hidden" name="leaderId" value={l.id} />
-                  <input type="hidden" name="active" value={String(!l.isActive)} />
-                  <button className={l.isActive ? "btn-danger" : "btn-secondary"}>
-                    {l.isActive ? "Deactivate" : "Reactivate"}
-                  </button>
-                </form>
-              ) : null}
-            </div>
-          ))
-        )}
-      </div>
-
-      <form action={promoteLeaderAction} className="card max-w-xl space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
-          Promote a member to leader
-        </h2>
-        <p className="text-xs text-zinc-500">
-          Attaches a login to an existing member record — never creates a
-          duplicate person. Re-promoting an existing leader updates their role
-          and resets their password.
-        </p>
-        <div>
-          <label className="label">Member</label>
-          <select name="memberId" className="input" required defaultValue="">
-            <option value="" disabled>
-              Select member
-            </option>
-            {scopedMembers.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.firstName} {m.lastName} — {m.phoneNumber}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label">Role</label>
-          <select name="role" className="input" required defaultValue="">
-            <option value="" disabled>
-              Select role
-            </option>
-            {roleOptions.map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABELS[r]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div>
-            <label className="label">Council (if council leader)</label>
-            <select name="councilId" className="input" defaultValue="">
-              <option value="">—</option>
-              {councilOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label">Governorship (if governor)</label>
-            <select name="governorshipId" className="input" defaultValue="">
-              <option value="">—</option>
-              {govOptions.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label">Bacenta (if bacenta leader)</label>
-            <select name="bacentaId" className="input" defaultValue="">
-              <option value="">—</option>
-              {scoped.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} ({b.area === "area1" ? "A1" : "A2"})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className="label">Username</label>
-            <input name="username" className="input" autoCapitalize="none" required />
-          </div>
-          <div>
-            <label className="label">Password (min 8 chars)</label>
-            <input name="password" className="input" minLength={8} required />
-          </div>
-        </div>
-        <button className="btn">Promote / update leader</button>
-      </form>
-    </div>
+    <LeadersClient
+      actorId={actor.id}
+      visibleLeaders={visibleLeaders}
+      roleOptions={roleOptions}
+      councilOptions={councilOptions}
+      govOptions={govOptions}
+      scopedBacentas={scoped}
+      scopedMembers={scopedMembers}
+    />
   );
 }

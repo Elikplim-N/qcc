@@ -76,10 +76,10 @@ export function MemberForm({
           <input name="dateOfBirth" type="date" className="input" defaultValue={values.dateOfBirth ?? ""} />
         </div>
         <div>
-          <label className="label">Bacenta *</label>
-          <select name="bacentaId" className="input" defaultValue={values.bacentaId ?? ""} required>
-            <option value="" disabled>
-              Select bacenta
+          <label className="label">Bacenta</label>
+          <select name="bacentaId" className="input" defaultValue={values.bacentaId ?? ""}>
+            <option value="">
+              — None —
             </option>
             {bacentas.map((b) => (
               <option key={b.id} value={b.id}>

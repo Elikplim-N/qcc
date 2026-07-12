@@ -26,8 +26,12 @@ async function assertCanManage(bacentaId: string) {
 
 export async function createMemberAction(formData: FormData) {
   const bacentaId = str(formData, "bacentaId");
-  if (!bacentaId) throw new Error("Select a bacenta.");
-  const leader = await assertCanManage(bacentaId);
+  let leader;
+  if (bacentaId) {
+    leader = await assertCanManage(bacentaId);
+  } else {
+    leader = await requireLeader();
+  }
 
   const firstName = str(formData, "firstName");
   const lastName = str(formData, "lastName");
@@ -78,7 +82,12 @@ export async function updateMemberAction(formData: FormData) {
   // Must be able to manage the member's current bacenta (or target one).
   const currentBacentaId = existing.bacentaId;
   const targetBacentaId = str(formData, "bacentaId") ?? currentBacentaId;
-  const leader = await assertCanManage(targetBacentaId ?? "");
+  let leader;
+  if (targetBacentaId) {
+    leader = await assertCanManage(targetBacentaId);
+  } else {
+    leader = await requireLeader();
+  }
   if (currentBacentaId && currentBacentaId !== targetBacentaId) {
     // moving between bacentas — must also oversee the source
     const src = await getBacentaScope(currentBacentaId);

@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { and, count, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, count, eq, gte, inArray, lte } from "drizzle-orm";
 
-import { db, fellowshipAttendanceDays, fellowshipAttendanceEntries, bacentas } from "@qcc/db";
+import { db, fellowshipAttendanceDays, premobilisations, onTheWaySubmissions } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { getScopedBacentas } from "@qcc/core/scope";
-import { serviceWeekOf, formatDate, cediFromPesewas } from "@qcc/core/week";
-import { StatusBadge } from "@qcc/ui/components/status-badge";
+import { serviceWeekOf, formatDate } from "@qcc/core/week";
 
 export default async function BacentasMonitoringPage() {
   const leader = await requireLeader();
@@ -31,14 +30,7 @@ export default async function BacentasMonitoringPage() {
   const days = ids.length
     ? await db
         .select({
-          id: fellowshipAttendanceDays.id,
           bacentaId: fellowshipAttendanceDays.bacentaId,
-          attendanceDate: fellowshipAttendanceDays.attendanceDate,
-          attendanceCount: fellowshipAttendanceDays.attendanceCount,
-          visitorCount: fellowshipAttendanceDays.visitorCount,
-          incomePesewas: fellowshipAttendanceDays.incomePesewas,
-          tithersCount: fellowshipAttendanceDays.tithersCount,
-          photoUrl: fellowshipAttendanceDays.photoUrl,
           status: fellowshipAttendanceDays.status,
         })
         .from(fellowshipAttendanceDays)
@@ -51,75 +43,113 @@ export default async function BacentasMonitoringPage() {
         )
     : [];
 
-  const dayByBacenta = new Map(days.map((d) => [d.bacentaId, d]));
-  const submitted = days.filter((d) => d.status === "submitted").length;
-  const approved = days.filter((d) => d.status === "approved").length;
+  const premobs = ids.length
+    ? await db
+        .select({ bacentaId: premobilisations.bacentaId })
+        .from(premobilisations)
+        .where(
+          and(
+            inArray(premobilisations.bacentaId, ids),
+            eq(premobilisations.weekOf, weekOf),
+          ),
+        )
+    : [];
+
+  const otws = ids.length
+    ? await db
+        .select({
+          bacentaId: onTheWaySubmissions.bacentaId,
+          status: onTheWaySubmissions.status,
+        })
+        .from(onTheWaySubmissions)
+        .where(
+          and(
+            inArray(onTheWaySubmissions.bacentaId, ids),
+            eq(onTheWaySubmissions.weekOf, weekOf),
+          ),
+        )
+    : [];
+
+  const fellowshipIds = new Set(days.map((d) => d.bacentaId));
+  const premobIds = new Set(premobs.map((p) => p.bacentaId));
+  const otwIds = new Set(otws.map((o) => o.bacentaId));
+  const arrivedIds = new Set(otws.filter((o) => o.status === "approved").map((o) => o.bacentaId));
+
+  const noActivity = scoped.filter((b) => !fellowshipIds.has(b.id) && !premobIds.has(b.id)).length;
+  const mobilising = scoped.filter((b) => premobIds.has(b.id) && !otwIds.has(b.id)).length;
+  const onTheWay = scoped.filter((b) => otwIds.has(b.id) && !arrivedIds.has(b.id)).length;
+  const didntBus = scoped.filter((b) => fellowshipIds.has(b.id) && !premobIds.has(b.id) && !otwIds.has(b.id)).length;
+  const arrived = Array.from(arrivedIds).length;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold">Bacenta Monitoring</h1>
-        <p className="text-sm text-zinc-400">Week of {formatDate(weekOf)}</p>
+        <h1 className="text-xl font-bold">Arrivals</h1>
+        <p className="text-sm text-zinc-400">Monitor bussing and approve arrivals for today's service.</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 max-w-2xl">
-        <div className="card">
-          <div className="text-xs uppercase text-zinc-500">Reported</div>
-          <div className="text-2xl font-bold text-emerald-400">{submitted + approved}</div>
-        </div>
-        <div className="card">
-          <div className="text-xs uppercase text-zinc-500">Pending</div>
-          <div className="text-2xl font-bold text-amber-400">{submitted}</div>
-        </div>
-        <div className="card">
-          <div className="text-xs uppercase text-zinc-500">Approved</div>
-          <div className="text-2xl font-bold text-sky-400">{approved}</div>
-        </div>
-      </div>
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">Bacenta Monitoring</h2>
 
-      <div className="card overflow-x-auto p-0">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-zinc-800 text-left text-xs uppercase tracking-wide text-zinc-500">
-              <th className="px-4 py-3 font-semibold">Bacenta</th>
-              <th className="px-4 py-3 font-semibold">Attendance</th>
-              <th className="px-4 py-3 font-semibold">Visitors</th>
-              <th className="px-4 py-3 font-semibold">Income</th>
-              <th className="px-4 py-3 font-semibold">Tithers</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Date</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800">
-            {scoped.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
-                  No bacentas in your scope.
-                </td>
-              </tr>
-            ) : (
-              scoped.map((b) => {
-                const d = dayByBacenta.get(b.id);
-                return (
-                  <tr key={b.id} className="hover:bg-zinc-800/30">
-                    <td className="px-4 py-3 font-medium">{b.name}</td>
-                    <td className="px-4 py-3 text-zinc-400">{d?.attendanceCount ?? "—"}</td>
-                    <td className="px-4 py-3 text-zinc-400">{d?.visitorCount ?? "—"}</td>
-                    <td className="px-4 py-3 text-zinc-400">
-                      {d?.incomePesewas ? cediFromPesewas(d.incomePesewas) : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-400">{d?.tithersCount ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      {d ? <StatusBadge value={d.status} /> : <span className="text-xs text-amber-400">Not reported</span>}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-zinc-500">{d ? formatDate(d.attendanceDate) : "—"}</td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+        <div className="space-y-2">
+          <CategoryCard
+            label="Bacentas With No Activity"
+            count={noActivity}
+            color="text-red-400"
+            borderColor="border-red-500/30"
+          />
+          <CategoryCard
+            label="Bacentas Mobilising"
+            count={mobilising}
+            color="text-amber-400"
+            borderColor="border-amber-500/30"
+          />
+          <CategoryCard
+            label="Bacentas On The Way"
+            count={onTheWay}
+            color="text-sky-400"
+            borderColor="border-sky-500/30"
+          />
+          <CategoryCard
+            label="Bacentas That Didn't Bus"
+            count={didntBus}
+            color="text-orange-400"
+            borderColor="border-orange-500/30"
+          />
+          <CategoryCard
+            label="Bacentas That Have Arrived"
+            count={arrived}
+            color="text-emerald-400"
+            borderColor="border-emerald-500/30"
+          />
+        </div>
       </div>
+    </div>
+  );
+}
+
+function CategoryCard({
+  label,
+  count,
+  color,
+  borderColor,
+}: {
+  label: string;
+  count: number;
+  color: string;
+  borderColor: string;
+}) {
+  return (
+    <div className={`card flex items-center justify-between p-4 border-l-4 ${borderColor}`}>
+      <div className="flex items-center gap-4">
+        <div className={`text-3xl font-bold ${color} w-12 h-12 flex items-center justify-center rounded border ${borderColor}`}>
+          {count}
+        </div>
+        <span className={`text-lg font-medium ${color}`}>{label}</span>
+      </div>
+      <Link href="#" className="text-sm text-zinc-500 hover:text-zinc-300">
+        View
+      </Link>
     </div>
   );
 }

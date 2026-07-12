@@ -7,6 +7,7 @@ import {
   members,
   onTheWaySubmissions,
   premobilisations,
+  leaders,
 } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { getScopedBacentas } from "@qcc/core/scope";
@@ -119,6 +120,19 @@ export default async function DashboardPage() {
     .filter((o) => o.status === "approved")
     .reduce((s, o) => s + o.reportedMembers + o.reportedVisitors, 0);
 
+  const bacentaLeaderMap = new Map();
+  for (const b of scoped) {
+    const leaderRecord = await db.query.leaders.findFirst({
+      where: eq(leaders.bacentaId, b.id),
+    });
+    if (leaderRecord) {
+      const member = await db.query.members.findFirst({
+        where: eq(members.id, leaderRecord.memberId),
+      });
+      bacentaLeaderMap.set(b.id, member?.firstName ?? "");
+    }
+  }
+
   return (
     <div className="space-y-6 animate-[slide-up_0.2s_ease-out]">
       <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-gradient-to-r from-indigo-950/20 via-zinc-900/60 to-zinc-900/30 p-6 shadow-xl">
@@ -154,7 +168,7 @@ export default async function DashboardPage() {
             value={totalGovs}
             icon={ShieldIcon}
             borderColor="border-t-sky-500"
-            href="/manage"
+            href="/hierarchy"
           />
         )}
         <Stat
@@ -163,6 +177,7 @@ export default async function DashboardPage() {
           sub={`${area1} A1 · ${area2} A2`}
           icon={ChurchIcon}
           borderColor="border-t-violet-500"
+          href={isChief ? "/hierarchy" : undefined}
         />
         <Stat
           label="Pre-mob this week"
@@ -221,13 +236,18 @@ export default async function DashboardPage() {
           ) : (
             scoped.map((b) => {
               const otw = otwByBacenta.get(b.id);
+              const leaderName = bacentaLeaderMap.get(b.id);
               return (
-                <div
+                <Link
                   key={b.id}
+                  href={`/hierarchy/bacentas/${b.id}`}
                   className="card-interactive flex flex-wrap items-center justify-between gap-3 p-3.5 transition-all duration-200"
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="text-sm font-semibold text-zinc-200">{b.name}</span>
+                    <div className="flex-1">
+                      <span className="text-sm font-semibold text-zinc-200 block">{b.name}</span>
+                      {leaderName && <span className="text-xs text-zinc-500">{leaderName}</span>}
+                    </div>
                     <StatusBadge value={b.area} />
                   </div>
                   <div className="flex items-center gap-3 text-xs">
@@ -246,7 +266,7 @@ export default async function DashboardPage() {
                       )
                     ) : null}
                   </div>
-                </div>
+                </Link>
               );
             })
           )}

@@ -27,48 +27,45 @@ export default async function BacentasMonitoringPage() {
   const satStr = sat.toISOString().split("T")[0];
   const monStr = mon.toISOString().split("T")[0];
 
-  const days = ids.length
-    ? await db
-        .select({
-          bacentaId: fellowshipAttendanceDays.bacentaId,
-          status: fellowshipAttendanceDays.status,
-        })
-        .from(fellowshipAttendanceDays)
-        .where(
-          and(
-            inArray(fellowshipAttendanceDays.bacentaId, ids),
-            gte(fellowshipAttendanceDays.attendanceDate, satStr),
-            lte(fellowshipAttendanceDays.attendanceDate, monStr),
+  // Independent queries — run in parallel.
+  const [days, premobs, otws] = ids.length
+    ? await Promise.all([
+        db
+          .select({
+            bacentaId: fellowshipAttendanceDays.bacentaId,
+            status: fellowshipAttendanceDays.status,
+          })
+          .from(fellowshipAttendanceDays)
+          .where(
+            and(
+              inArray(fellowshipAttendanceDays.bacentaId, ids),
+              gte(fellowshipAttendanceDays.attendanceDate, satStr),
+              lte(fellowshipAttendanceDays.attendanceDate, monStr),
+            ),
           ),
-        )
-    : [];
-
-  const premobs = ids.length
-    ? await db
-        .select({ bacentaId: premobilisations.bacentaId })
-        .from(premobilisations)
-        .where(
-          and(
-            inArray(premobilisations.bacentaId, ids),
-            eq(premobilisations.weekOf, weekOf),
+        db
+          .select({ bacentaId: premobilisations.bacentaId })
+          .from(premobilisations)
+          .where(
+            and(
+              inArray(premobilisations.bacentaId, ids),
+              eq(premobilisations.weekOf, weekOf),
+            ),
           ),
-        )
-    : [];
-
-  const otws = ids.length
-    ? await db
-        .select({
-          bacentaId: onTheWaySubmissions.bacentaId,
-          status: onTheWaySubmissions.status,
-        })
-        .from(onTheWaySubmissions)
-        .where(
-          and(
-            inArray(onTheWaySubmissions.bacentaId, ids),
-            eq(onTheWaySubmissions.weekOf, weekOf),
+        db
+          .select({
+            bacentaId: onTheWaySubmissions.bacentaId,
+            status: onTheWaySubmissions.status,
+          })
+          .from(onTheWaySubmissions)
+          .where(
+            and(
+              inArray(onTheWaySubmissions.bacentaId, ids),
+              eq(onTheWaySubmissions.weekOf, weekOf),
+            ),
           ),
-        )
-    : [];
+      ])
+    : [[], [], []];
 
   const premobIds = new Set(premobs.map((p) => p.bacentaId));
   const otwSubmittedIds = new Set(otws.filter((o) => o.status === "submitted").map((o) => o.bacentaId));

@@ -68,44 +68,56 @@ export default async function DashboardPage() {
         ? undefined
         : inArray(members.bacentaId, ids);
 
-  const [memberCount] = empty && leader.role !== "chief_admin"
-    ? [{ n: 0 }]
-    : await db
-        .select({ n: count() })
-        .from(members)
-        .where(scopeFilter);
-
-  const govsCountRows = isChief ? await db.select({ n: count() }).from(governorships) : [];
+  // All four queries are independent — run them in parallel instead of
+  // serially to cut dashboard response time.
+  const [memberCountRows, govsCountRows, premobs, otws, leaderRows] =
+    await Promise.all([
+      empty && leader.role !== "chief_admin"
+        ? Promise.resolve([{ n: 0 }])
+        : db.select({ n: count() }).from(members).where(scopeFilter),
+      isChief
+        ? db.select({ n: count() }).from(governorships)
+        : Promise.resolve([]),
+      empty
+        ? Promise.resolve([])
+        : db
+            .select({ bacentaId: premobilisations.bacentaId })
+            .from(premobilisations)
+            .where(
+              and(
+                inArray(premobilisations.bacentaId, ids),
+                eq(premobilisations.weekOf, weekOf),
+              ),
+            ),
+      empty
+        ? Promise.resolve([])
+        : db
+            .select({
+              bacentaId: onTheWaySubmissions.bacentaId,
+              status: onTheWaySubmissions.status,
+              reportedMembers: onTheWaySubmissions.reportedMembers,
+              reportedVisitors: onTheWaySubmissions.reportedVisitors,
+            })
+            .from(onTheWaySubmissions)
+            .where(
+              and(
+                inArray(onTheWaySubmissions.bacentaId, ids),
+                eq(onTheWaySubmissions.weekOf, weekOf),
+              ),
+            ),
+      empty
+        ? Promise.resolve([])
+        : db
+            .select({
+              bacentaId: leaders.bacentaId,
+              firstName: members.firstName,
+            })
+            .from(leaders)
+            .innerJoin(members, eq(leaders.memberId, members.id))
+            .where(inArray(leaders.bacentaId, ids)),
+    ]);
+  const [memberCount] = memberCountRows;
   const totalGovs = govsCountRows[0]?.n ?? 0;
-
-  const premobs = empty
-    ? []
-    : await db
-        .select({ bacentaId: premobilisations.bacentaId })
-        .from(premobilisations)
-        .where(
-          and(
-            inArray(premobilisations.bacentaId, ids),
-            eq(premobilisations.weekOf, weekOf),
-          ),
-        );
-
-  const otws = empty
-    ? []
-    : await db
-        .select({
-          bacentaId: onTheWaySubmissions.bacentaId,
-          status: onTheWaySubmissions.status,
-          reportedMembers: onTheWaySubmissions.reportedMembers,
-          reportedVisitors: onTheWaySubmissions.reportedVisitors,
-        })
-        .from(onTheWaySubmissions)
-        .where(
-          and(
-            inArray(onTheWaySubmissions.bacentaId, ids),
-            eq(onTheWaySubmissions.weekOf, weekOf),
-          ),
-        );
 
   const area1 = scoped.filter((b) => b.area === "area1").length;
   const area2 = scoped.filter((b) => b.area === "area2").length;
@@ -120,18 +132,11 @@ export default async function DashboardPage() {
     .filter((o) => o.status === "approved")
     .reduce((s, o) => s + o.reportedMembers + o.reportedVisitors, 0);
 
-  const bacentaLeaderMap = new Map();
-  for (const b of scoped) {
-    const leaderRecord = await db.query.leaders.findFirst({
-      where: eq(leaders.bacentaId, b.id),
-    });
-    if (leaderRecord) {
-      const member = await db.query.members.findFirst({
-        where: eq(members.id, leaderRecord.memberId),
-      });
-      bacentaLeaderMap.set(b.id, member?.firstName ?? "");
-    }
-  }
+  const bacentaLeaderMap = new Map(
+    leaderRows
+      .filter((r) => r.bacentaId)
+      .map((r) => [r.bacentaId, r.firstName]),
+  );
 
   return (
     <div className="space-y-6 animate-[slide-up_0.2s_ease-out]">

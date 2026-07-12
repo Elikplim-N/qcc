@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { QccLogo } from "@qcc/ui/components/logo";
+import { QccLogoFull } from "@qcc/ui/components/logo";
 import { loginAction, type LoginState } from "./actions";
 
 export default function LoginPage() {
@@ -19,8 +19,8 @@ export default function LoginPage() {
 
       <div className="relative z-10 w-full max-w-sm animate-[slide-up_0.2s_ease-out]">
         <div className="mb-8 flex flex-col items-center gap-2 text-center text-zinc-100">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3.5 shadow-xl shadow-indigo-950/10">
-            <QccLogo size={54} />
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 px-6 py-4 shadow-xl shadow-indigo-950/10">
+            <QccLogoFull size={64} />
           </div>
           <h1 className="text-2xl font-black tracking-tight text-zinc-100 mt-2">QCC Synago</h1>
           <p className="text-sm text-zinc-400 font-medium">Operations &amp; arrivals — leader sign in</p>

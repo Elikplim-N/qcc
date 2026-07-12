@@ -115,29 +115,7 @@ export default async function PoimenDashboard({
   const currentWeek = serviceWeekOf();
   const empty = ids.length === 0;
 
-  // Query service attendance for this week
-  const serviceDays = empty
-    ? []
-    : await db
-        .select({
-          id: serviceAttendanceDays.id,
-          bacentaId: serviceAttendanceDays.bacentaId,
-          status: serviceAttendanceDays.status,
-          visitorCount: serviceAttendanceDays.visitorCount,
-          present: sql<number>`count(*) filter (where ${serviceAttendanceEntries.present})`,
-          total: sql<number>`count(${serviceAttendanceEntries.id})`,
-        })
-        .from(serviceAttendanceDays)
-        .leftJoin(serviceAttendanceEntries, eq(serviceAttendanceEntries.dayId, serviceAttendanceDays.id))
-        .where(
-          and(
-            inArray(serviceAttendanceDays.bacentaId, ids),
-            eq(serviceAttendanceDays.serviceDate, currentWeek)
-          )
-        )
-        .groupBy(serviceAttendanceDays.id);
-
-  // Query fellowship attendance for this week (Sat-Mon)
+  // Fellowship window for this week (Sat-Mon)
   const sunday = new Date(currentWeek);
   const sat = new Date(sunday);
   sat.setDate(sunday.getDate() - 1);
@@ -146,43 +124,63 @@ export default async function PoimenDashboard({
   const satStr = sat.toISOString().split("T")[0];
   const monStr = mon.toISOString().split("T")[0];
 
-  const fellowshipDays = empty
-    ? []
-    : await db
-        .select({
-          id: fellowshipAttendanceDays.id,
-          bacentaId: fellowshipAttendanceDays.bacentaId,
-          status: fellowshipAttendanceDays.status,
-          visitorCount: fellowshipAttendanceDays.visitorCount,
-          present: sql<number>`count(*) filter (where ${fellowshipAttendanceEntries.present})`,
-          total: sql<number>`count(${fellowshipAttendanceEntries.id})`,
-        })
-        .from(fellowshipAttendanceDays)
-        .leftJoin(fellowshipAttendanceEntries, eq(fellowshipAttendanceEntries.dayId, fellowshipAttendanceDays.id))
-        .where(
-          and(
-            inArray(fellowshipAttendanceDays.bacentaId, ids),
-            gte(fellowshipAttendanceDays.attendanceDate, satStr),
-            lte(fellowshipAttendanceDays.attendanceDate, monStr)
+  // These four queries are independent — run them in parallel to cut
+  // dashboard response time.
+  const [serviceDays, fellowshipDays, memberCounts, flagged] = await Promise.all([
+    empty
+      ? Promise.resolve([])
+      : db
+          .select({
+            id: serviceAttendanceDays.id,
+            bacentaId: serviceAttendanceDays.bacentaId,
+            status: serviceAttendanceDays.status,
+            visitorCount: serviceAttendanceDays.visitorCount,
+            present: sql<number>`count(*) filter (where ${serviceAttendanceEntries.present})`,
+            total: sql<number>`count(${serviceAttendanceEntries.id})`,
+          })
+          .from(serviceAttendanceDays)
+          .leftJoin(serviceAttendanceEntries, eq(serviceAttendanceEntries.dayId, serviceAttendanceDays.id))
+          .where(
+            and(
+              inArray(serviceAttendanceDays.bacentaId, ids),
+              eq(serviceAttendanceDays.serviceDate, currentWeek)
+            )
           )
-        )
-        .groupBy(fellowshipAttendanceDays.id);
+          .groupBy(serviceAttendanceDays.id),
+    empty
+      ? Promise.resolve([])
+      : db
+          .select({
+            id: fellowshipAttendanceDays.id,
+            bacentaId: fellowshipAttendanceDays.bacentaId,
+            status: fellowshipAttendanceDays.status,
+            visitorCount: fellowshipAttendanceDays.visitorCount,
+            present: sql<number>`count(*) filter (where ${fellowshipAttendanceEntries.present})`,
+            total: sql<number>`count(${fellowshipAttendanceEntries.id})`,
+          })
+          .from(fellowshipAttendanceDays)
+          .leftJoin(fellowshipAttendanceEntries, eq(fellowshipAttendanceEntries.dayId, fellowshipAttendanceDays.id))
+          .where(
+            and(
+              inArray(fellowshipAttendanceDays.bacentaId, ids),
+              gte(fellowshipAttendanceDays.attendanceDate, satStr),
+              lte(fellowshipAttendanceDays.attendanceDate, monStr)
+            )
+          )
+          .groupBy(fellowshipAttendanceDays.id),
+    empty
+      ? Promise.resolve([])
+      : db
+          .select({ bacentaId: members.bacentaId, count: sql<number>`count(*)` })
+          .from(members)
+          .where(inArray(members.bacentaId, ids))
+          .groupBy(members.bacentaId),
+    getMissingMembers(ids),
+  ]);
 
   const serviceMap = new Map(serviceDays.map((d) => [d.bacentaId, d]));
   const fellowshipMap = new Map(fellowshipDays.map((d) => [d.bacentaId, d]));
-
-  // Scoped member counts per bacenta
-  const memberCounts = empty
-    ? []
-    : await db
-        .select({ bacentaId: members.bacentaId, count: sql<number>`count(*)` })
-        .from(members)
-        .where(inArray(members.bacentaId, ids))
-        .groupBy(members.bacentaId);
   const countsMap = new Map(memberCounts.map((c) => [c.bacentaId, c.count]));
-
-  // Flagged members (consecutive absences)
-  const flagged = await getMissingMembers(ids);
 
   return (
     <div className="space-y-6 animate-[slide-up_0.2s_ease-out]">

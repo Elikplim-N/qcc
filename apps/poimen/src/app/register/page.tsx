@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db, bacentas, governorships } from "@qcc/db";
+import { QccLogoFull } from "@qcc/ui/components/logo";
 import { PublicMemberForm } from "./public-member-form";
 import { publicRegisterMemberAction } from "./actions";
 
@@ -27,7 +28,8 @@ export default async function RegisterPage() {
   return (
     <div className="min-h-screen bg-zinc-950 px-4 py-12">
       <div className="mx-auto max-w-2xl">
-        <div className="mb-8 text-center">
+        <div className="mb-8 flex flex-col items-center text-center text-zinc-100">
+          <QccLogoFull size={72} className="mb-4" />
           <h1 className="text-3xl font-bold text-white">Join Our Fellowship</h1>
           <p className="mt-2 text-sm text-zinc-400">
             Create your member profile to get started

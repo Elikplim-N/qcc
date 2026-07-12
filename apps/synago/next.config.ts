@@ -6,6 +6,12 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "8mb",
     },
+    // Reuse rendered pages on client-side navigation instead of refetching
+    // every time - big perceived-speed win for a nav-heavy app.
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
   },
 };
 

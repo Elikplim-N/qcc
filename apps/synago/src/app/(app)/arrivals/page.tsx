@@ -10,6 +10,9 @@ import { StatusBadge } from "@qcc/ui/components/status-badge";
 import { submitOnTheWayAction, submitPremobAction } from "./actions";
 import { VehiclesInput } from "./vehicles-input";
 
+// Main arrivals submission form for bacenta leaders
+// Stage 1: Pre-Mobilisation (both areas) — proof photo + count
+// Stage 2: On-the-Way (Area 2 only) — members, vehicles, cost, MoMo
 export default async function ArrivalsPage() {
   const leader = await requireLeader();
   if (!canSubmitArrivals(leader) || !leader.bacentaId) {

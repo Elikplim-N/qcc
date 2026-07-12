@@ -107,33 +107,47 @@ export function LeadersClient({
         className="input"
       />
 
-      <div className="card divide-y divide-zinc-800 p-0">
-        {filteredLeaders.length === 0 ? (
-          <p className="p-4 text-sm text-zinc-500">No leaders match.</p>
-        ) : (
-          filteredLeaders.map((l) => (
-            <div
-              key={l.id}
-              className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
-            >
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium">
-                  {l.fullName}{" "}
-                  <span className="text-xs text-zinc-500">@{l.username}</span>
-                </div>
-                <div className="truncate text-xs text-zinc-500">
-                  {ROLE_LABELS[l.role]}
-                  {l.scopeLabel ? ` · ${l.scopeLabel}` : ""}
-                </div>
-              </div>
-              {l.id !== actorId ? (
-                <button onClick={() => setRemoveTarget(l)} className="btn-danger shrink-0">
-                  Remove
-                </button>
-              ) : null}
-            </div>
-          ))
-        )}
+      <div className="card overflow-x-auto p-0">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-zinc-800 text-left text-xs uppercase tracking-wide text-zinc-500">
+              <th className="px-4 py-3 font-semibold">Name</th>
+              <th className="px-4 py-3 font-semibold">Role</th>
+              <th className="px-4 py-3 font-semibold">Scope</th>
+              <th className="px-4 py-3 font-semibold">Username</th>
+              <th className="px-4 py-3 font-semibold"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-800">
+            {filteredLeaders.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">
+                  No leaders match.
+                </td>
+              </tr>
+            ) : (
+              filteredLeaders.map((l) => (
+                <tr key={l.id} className="hover:bg-zinc-800/30">
+                  <td className="whitespace-nowrap px-4 py-3 font-medium">{l.fullName}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-zinc-400">
+                    {ROLE_LABELS[l.role]}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-zinc-400">
+                    {l.scopeLabel || "—"}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-zinc-400">@{l.username}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right">
+                    {l.id !== actorId ? (
+                      <button onClick={() => setRemoveTarget(l)} className="btn-danger">
+                        Remove
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {modalOpen && (
@@ -141,8 +155,10 @@ export function LeadersClient({
           <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
             <p className="text-xs text-zinc-500">
               Attaches a login to an existing member — never a duplicate
-              person. Re-promoting an existing leader updates their role and
-              password.
+              person. A username is generated from their name (shown in the
+              table after) and their password defaults to{" "}
+              <span className="font-mono text-zinc-400">change-me-now</span>.
+              Re-promoting an existing leader updates their role.
             </p>
 
             <div>
@@ -227,26 +243,6 @@ export function LeadersClient({
                 </select>
               </div>
             )}
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="label">Username (optional)</label>
-                <input
-                  name="username"
-                  className="input"
-                  autoCapitalize="none"
-                  placeholder="e.g. kofi.mensah (auto if empty)"
-                />
-              </div>
-              <div>
-                <label className="label">Password (optional)</label>
-                <input
-                  name="password"
-                  className="input"
-                  placeholder="Defaults to 'change-me-now'"
-                />
-              </div>
-            </div>
 
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button type="button" onClick={closeModal} className="btn-secondary">

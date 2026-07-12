@@ -21,8 +21,6 @@ export default async function ManagePage() {
       .groupBy(members.bacentaId),
     db
       .select({
-        councilId: leaders.councilId,
-        governorshipId: leaders.governorshipId,
         bacentaId: leaders.bacentaId,
         firstName: members.firstName,
         lastName: members.lastName,
@@ -36,26 +34,38 @@ export default async function ManagePage() {
       .filter((r) => r.bacentaId !== null)
       .map((r) => [r.bacentaId as string, r.n]),
   );
-
-  // Each position holds at most one active leader; null/missing means vacant.
-  const councilLeaderName: Record<string, string> = {};
-  const govLeaderName: Record<string, string> = {};
-  const bacentaLeaderName: Record<string, string> = {};
-  for (const l of activeLeaders) {
-    const name = `${l.firstName} ${l.lastName}`;
-    if (l.councilId) councilLeaderName[l.councilId] = name;
-    if (l.governorshipId) govLeaderName[l.governorshipId] = name;
-    if (l.bacentaId) bacentaLeaderName[l.bacentaId] = name;
-  }
-
-  // Scope the tree
-  const visibleCouncils = allCouncils.filter((c) =>
-    leader.role === "chief_admin"
-      ? true
-      : leader.role === "council_leader"
-        ? c.id === leader.councilId
-        : allGovs.some((g) => g.councilId === c.id && g.id === leader.governorshipId),
+  const bacentaLeaderName = new Map(
+    activeLeaders
+      .filter((l) => l.bacentaId !== null)
+      .map((l) => [l.bacentaId as string, `${l.firstName} ${l.lastName}`]),
   );
+
+  const govById = new Map(allGovs.map((g) => [g.id, g]));
+  const councilNameById = new Map(allCouncils.map((c) => [c.id, c.name]));
+
+  // Scope to what this leader may see
+  const visibleGovIds = new Set(
+    leader.role === "chief_admin"
+      ? allGovs.map((g) => g.id)
+      : leader.role === "council_leader"
+        ? allGovs.filter((g) => g.councilId === leader.councilId).map((g) => g.id)
+        : allGovs.filter((g) => g.id === leader.governorshipId).map((g) => g.id),
+  );
+
+  const visibleBacentas = allBacentas
+    .filter((b) => visibleGovIds.has(b.governorshipId))
+    .map((b) => {
+      const gov = govById.get(b.governorshipId);
+      return {
+        id: b.id,
+        name: b.name,
+        area: b.area,
+        governorshipName: gov?.name ?? "",
+        councilName: gov ? (councilNameById.get(gov.councilId) ?? "") : "",
+        memberCount: countByBacenta.get(b.id) ?? 0,
+        leaderName: bacentaLeaderName.get(b.id),
+      };
+    });
 
   // Creation scopes for the forms
   const creatableCouncils =
@@ -71,13 +81,7 @@ export default async function ManagePage() {
 
   return (
     <ManageClient
-      visibleCouncils={visibleCouncils}
-      allGovs={allGovs}
-      allBacentas={allBacentas}
-      countByBacenta={countByBacenta}
-      councilLeaderName={councilLeaderName}
-      govLeaderName={govLeaderName}
-      bacentaLeaderName={bacentaLeaderName}
+      visibleBacentas={visibleBacentas}
       creatableCouncils={creatableCouncils}
       creatableGovs={creatableGovs}
       canCreateCouncil={canCreateCouncil(leader)}

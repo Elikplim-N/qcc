@@ -3,6 +3,7 @@ import { and, count, eq, inArray, sql } from "drizzle-orm";
 
 import {
   db,
+  governorships,
   members,
   onTheWaySubmissions,
   premobilisations,
@@ -46,6 +47,12 @@ const CheckCircleIcon = (
   </svg>
 );
 
+const ShieldIcon = (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+
 export default async function DashboardPage() {
   const leader = await requireLeader();
   const scoped = await getScopedBacentas(leader);
@@ -53,6 +60,7 @@ export default async function DashboardPage() {
   const weekOf = serviceWeekOf();
 
   const empty = ids.length === 0;
+  const isChief = leader.role === "chief_admin";
 
   const scopeFilter =
     leader.role === "chief_admin"
@@ -67,6 +75,9 @@ export default async function DashboardPage() {
         .select({ n: count() })
         .from(members)
         .where(scopeFilter);
+
+  const govsCountRows = isChief ? await db.select({ n: count() }).from(governorships) : [];
+  const totalGovs = govsCountRows[0]?.n ?? 0;
 
   const premobs = empty
     ? []
@@ -157,13 +168,22 @@ export default async function DashboardPage() {
         <div className="absolute right-0 top-0 -mr-16 -mt-16 h-36 w-36 rounded-full bg-indigo-500/10 blur-3xl" />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className={`grid grid-cols-2 gap-4 ${isChief ? "md:grid-cols-5" : "md:grid-cols-4"}`}>
         <Stat
           label="Members"
           value={memberCount.n}
           icon={UsersIcon}
           borderColor="border-t-indigo-500"
         />
+        {isChief && (
+          <Stat
+            label="Governorships"
+            value={totalGovs}
+            icon={ShieldIcon}
+            borderColor="border-t-sky-500"
+            href="/manage"
+          />
+        )}
         <Stat
           label="Bacentas"
           value={scoped.length}

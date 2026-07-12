@@ -151,3 +151,29 @@ export async function updateMemberAction(formData: FormData) {
   revalidatePath(`/members/${memberId}`);
   redirect(`/members/${memberId}`);
 }
+
+import { hashPassword } from "@qcc/core/password";
+
+export async function changePasswordAction(formData: FormData) {
+  const leader = await requireLeader();
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+
+  if (!password || password.length < 8) {
+    throw new Error("Password must be at least 8 characters.");
+  }
+  if (password !== confirmPassword) {
+    throw new Error("Passwords do not match.");
+  }
+
+  await db
+    .update(leaders)
+    .set({
+      passwordHash: hashPassword(password),
+    })
+    .where(eq(leaders.id, leader.id));
+
+  await logAudit("password_changed", leader.id, "leader", leader.id);
+  revalidatePath(`/members/${leader.memberId}`);
+  redirect(`/members/${leader.memberId}`);
+}

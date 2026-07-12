@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { db, bacentas, councils, governorships, leaders } from "@qcc/db";
+import { db, bacentas, councils, governorships, leaders, members } from "@qcc/db";
 import { requireLeader, type SessionLeader } from "@qcc/core/auth";
 import { hashPassword } from "@qcc/core/password";
 import {
@@ -131,15 +131,43 @@ export async function promoteLeaderAction(formData: FormData) {
   const actor = await requireLeader();
   const memberId = str(formData, "memberId");
   const role = str(formData, "role") as Role;
-  const username = str(formData, "username").toLowerCase();
-  const password = str(formData, "password");
+  let username = str(formData, "username")?.toLowerCase();
+  let password = str(formData, "password");
 
-  if (!memberId || !role || !username || !password) {
-    throw new Error("Member, role, username and password are all required.");
+  if (!memberId || !role) {
+    throw new Error("Member and role are required.");
   }
-  if (password.length < 8) throw new Error("Password must be at least 8 characters.");
   if (!assignableRoles(actor).includes(role)) {
     throw new Error("You cannot assign this role.");
+  }
+
+  // Load member to auto-generate username if needed
+  const member = await db.query.members.findFirst({
+    where: eq(members.id, memberId),
+  });
+  if (!member) throw new Error("Member not found.");
+
+  if (!username) {
+    let cleanFirst = member.firstName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    let cleanLast = member.lastName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    let generatedUsername = `${cleanFirst}.${cleanLast}`;
+    let baseUsername = generatedUsername;
+    let suffix = 1;
+    while (true) {
+      const exists = await db.query.leaders.findFirst({
+        where: eq(leaders.username, generatedUsername),
+      });
+      if (!exists) break;
+      generatedUsername = `${baseUsername}${suffix}`;
+      suffix++;
+    }
+    username = generatedUsername;
+  }
+
+  if (!password) {
+    password = "change-me-now";
+  } else if (password.length < 8) {
+    throw new Error("Password must be at least 8 characters.");
   }
 
   // Resolve scope by role

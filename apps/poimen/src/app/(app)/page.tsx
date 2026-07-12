@@ -8,6 +8,8 @@ import {
   serviceAttendanceEntries,
   fellowshipAttendanceDays,
   fellowshipAttendanceEntries,
+  governorships,
+  bacentas,
 } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { getScopedBacentas } from "@qcc/core/scope";
@@ -27,6 +29,23 @@ const UsersIcon = (
 const HeartIcon = (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+  </svg>
+);
+
+const ShieldIcon = (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+
+const BranchIcon = (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="18" cy="18" r="3" />
+    <circle cx="6" cy="6" r="3" />
+    <circle cx="18" cy="6" r="3" />
+    <path d="M18 9v6" />
+    <path d="M9 6h6" />
+    <path d="M6 9v9h9" />
   </svg>
 );
 
@@ -67,10 +86,11 @@ export default async function PoimenDashboard({
     );
   }
 
+  const isChief = leader.role === "chief_admin";
   const scopeFilter =
     leader.role === "chief_admin" ? undefined : inArray(members.bacentaId, ids);
 
-  const [rows, recent] = await Promise.all([
+  const [rows, recent, govsCountRows, bacentasCountRows] = await Promise.all([
     db
       .select({ status: members.status, n: count() })
       .from(members)
@@ -82,10 +102,14 @@ export default async function PoimenDashboard({
       .where(scopeFilter)
       .orderBy(desc(members.createdAt))
       .limit(8),
+    isChief ? db.select({ n: count() }).from(governorships) : Promise.resolve([]),
+    isChief ? db.select({ n: count() }).from(bacentas) : Promise.resolve([]),
   ]);
 
   const byStatus = new Map(rows.map((r) => [r.status, r.n]));
   const total = rows.reduce((s, r) => s + r.n, 0);
+  const totalGovs = govsCountRows[0]?.n ?? 0;
+  const totalBacentas = bacentasCountRows[0]?.n ?? 0;
 
   // Statistics Calculation
   const currentWeek = serviceWeekOf();
@@ -182,7 +206,7 @@ export default async function PoimenDashboard({
         <div className="absolute right-0 top-0 -mr-16 -mt-16 h-36 w-36 rounded-full bg-indigo-500/10 blur-3xl" />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 max-w-md">
+      <div className={`grid gap-4 ${isChief ? "sm:grid-cols-4 grid-cols-2 max-w-4xl" : "grid-cols-2 max-w-md"}`}>
         <Stat
           label="Members"
           value={total}
@@ -198,6 +222,22 @@ export default async function PoimenDashboard({
           borderColor="border-t-emerald-500"
           href="/members?status=committed"
         />
+        {isChief && (
+          <>
+            <Stat
+              label="Governorships"
+              value={totalGovs}
+              icon={ShieldIcon}
+              borderColor="border-t-amber-500"
+            />
+            <Stat
+              label="Bacentas"
+              value={totalBacentas}
+              icon={BranchIcon}
+              borderColor="border-t-sky-500"
+            />
+          </>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-3">

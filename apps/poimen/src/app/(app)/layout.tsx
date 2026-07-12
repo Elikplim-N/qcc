@@ -21,6 +21,9 @@ export default async function AppLayout({
     items.push({ href: "/members", label: "Members", icon: "users" });
     items.push({ href: "/attendance", label: "Attendance", icon: "check" });
   }
+  if (["chief_admin", "council_leader", "governor"].includes(leader.role)) {
+    items.push({ href: "/leaders", label: "Leaders", icon: "grid" });
+  }
 
   const roleLabel =
     leader.role === "bacenta_leader"

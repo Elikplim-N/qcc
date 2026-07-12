@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { and, ilike, inArray, or, type SQL } from "drizzle-orm";
 
-import { db, members } from "@qcc/db";
+import { db, members, leaders } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { getScopedBacentas } from "@qcc/core/scope";
 import { StatusBadge } from "@qcc/ui/components/status-badge";
@@ -40,8 +40,19 @@ export default async function MembersPage({
   }
 
   const rows = await db
-    .select()
+    .select({
+      id: members.id,
+      firstName: members.firstName,
+      lastName: members.lastName,
+      phoneNumber: members.phoneNumber,
+      photoUrl: members.photoUrl,
+      bacentaId: members.bacentaId,
+      status: members.status,
+      leaderRole: leaders.role,
+      leaderBacentaId: leaders.bacentaId,
+    })
     .from(members)
+    .leftJoin(leaders, eq(members.id, leaders.memberId))
     .where(filters.length ? and(...filters) : undefined)
     .orderBy(members.firstName, members.lastName)
     .limit(300);
@@ -77,37 +88,43 @@ export default async function MembersPage({
         {rows.length === 0 ? (
           <p className="p-4 text-sm text-zinc-500">No members found.</p>
         ) : (
-          rows.map((m) => (
-            <Link
-              key={m.id}
-              href={`/members/${m.id}`}
-              className="flex items-center gap-3 px-4 py-3 transition hover:bg-zinc-900"
-            >
-              {m.photoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={m.photoUrl}
-                  alt=""
-                  className="h-10 w-10 rounded-full border border-zinc-700 object-cover"
-                />
-              ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-zinc-400">
-                  {m.firstName[0]}
-                  {m.lastName[0]}
+          rows.map((m) => {
+            const displayBacentaId = (m.leaderRole === "bacenta_leader" && m.leaderBacentaId)
+              ? m.leaderBacentaId
+              : m.bacentaId;
+
+            return (
+              <Link
+                key={m.id}
+                href={`/members/${m.id}`}
+                className="flex items-center gap-3 px-4 py-3 transition hover:bg-zinc-900"
+              >
+                {m.photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={m.photoUrl}
+                    alt=""
+                    className="h-10 w-10 rounded-full border border-zinc-700 object-cover"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-zinc-400">
+                    {m.firstName[0]}
+                    {m.lastName[0]}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">
+                    {m.firstName} {m.lastName}
+                  </div>
+                  <div className="truncate text-xs text-zinc-500">
+                    {m.phoneNumber}
+                    {displayBacentaId ? ` · ${bacentaName.get(displayBacentaId) ?? ""}` : ""}
+                  </div>
                 </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">
-                  {m.firstName} {m.lastName}
-                </div>
-                <div className="truncate text-xs text-zinc-500">
-                  {m.phoneNumber}
-                  {m.bacentaId ? ` · ${bacentaName.get(m.bacentaId) ?? ""}` : ""}
-                </div>
-              </div>
-              <StatusBadge value={m.status} />
-            </Link>
-          ))
+                <StatusBadge value={m.status} />
+              </Link>
+            );
+          })
         )}
       </div>
       <p className="text-xs text-zinc-600">{rows.length} shown (max 300)</p>

@@ -1,0 +1,32 @@
+:root {
+  --background: #09090b;
+  --foreground: #fafafa;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Shared form styles */
+.input {
+  @apply w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-zinc-400;
+}
+.label {
+  @apply mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400;
+}
+.btn {
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-white disabled:opacity-50;
+}
+.btn-secondary {
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-zinc-500;
+}
+.btn-danger {
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-red-900 bg-red-950 px-4 py-2 text-sm font-medium text-red-300 transition hover:border-red-600;
+}
+.card {
+  @apply rounded-xl border border-zinc-800 bg-zinc-900/60 p-4;
+}
+.badge {
+  @apply inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold;
+}

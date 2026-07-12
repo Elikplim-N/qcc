@@ -1,31 +1,26 @@
 {
-  "name": "qcc",
+  "name": "qcc-monorepo",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "typecheck": "tsc --noEmit",
+    "dev:synago": "npm run dev -w @qcc/synago",
+    "dev:poimen": "npm run dev -w @qcc/poimen",
+    "build:synago": "npm run build -w @qcc/synago",
+    "build:poimen": "npm run build -w @qcc/poimen",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:seed": "tsx scripts/seed.ts"
   },
-  "dependencies": {
-    "dotenv": "^17.2.3",
-    "drizzle-orm": "^0.44.7",
-    "next": "^16.0.7",
-    "postgres": "^3.4.7",
-    "react": "^19.2.1",
-    "react-dom": "^19.2.1"
-  },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^22",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.8",
-    "tailwindcss": "^4",
+    "drizzle-orm": "^0.44.7",
+    "postgres": "^3.4.7",
     "tsx": "^4.20.6",
     "typescript": "^5"
   }

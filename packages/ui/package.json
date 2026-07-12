@@ -1,0 +1,14 @@
+{
+  "name": "@qcc/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./components/*": "./src/components/*.tsx",
+    "./css/*": "./src/css/*"
+  },
+  "peerDependencies": {
+    "next": "*",
+    "react": "*"
+  }
+}

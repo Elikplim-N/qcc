@@ -3,9 +3,9 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-import * as schema from "../src/db/schema";
-import { hashPassword } from "../src/lib/password";
-import { generateMemberCode } from "../src/lib/member-code";
+import * as schema from "../packages/db/src/schema";
+import { hashPassword } from "../packages/core/src/password";
+import { generateMemberCode } from "../packages/core/src/member-code";
 
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL not set");

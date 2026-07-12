@@ -1,0 +1,17 @@
+{
+  "name": "@qcc/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@qcc/db": "*",
+    "drizzle-orm": "^0.44.7"
+  },
+  "peerDependencies": {
+    "next": "*",
+    "react": "*"
+  }
+}

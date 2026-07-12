@@ -15,10 +15,23 @@ interface ManageClientProps {
   allGovs: any[];
   allBacentas: any[];
   countByBacenta: Map<string | null, number>;
+  councilLeaderName: Record<string, string>;
+  govLeaderName: Record<string, string>;
+  bacentaLeaderName: Record<string, string>;
   creatableCouncils: any[];
   creatableGovs: any[];
   canCreateCouncil: boolean;
   canCreateGov: boolean;
+}
+
+function LeaderTag({ name }: { name?: string }) {
+  return name ? (
+    <span className="text-xs text-zinc-500">Led by {name}</span>
+  ) : (
+    <span className="badge bg-amber-950 text-amber-300 border border-amber-900/30">
+      Vacant
+    </span>
+  );
 }
 
 export function ManageClient({
@@ -26,6 +39,9 @@ export function ManageClient({
   allGovs,
   allBacentas,
   countByBacenta,
+  councilLeaderName,
+  govLeaderName,
+  bacentaLeaderName,
   creatableCouncils,
   creatableGovs,
   canCreateCouncil,
@@ -69,13 +85,19 @@ export function ManageClient({
         ) : (
           visibleCouncils.map((c) => (
             <div key={c.id} className="card space-y-3">
-              <h2 className="font-bold">{c.name}</h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-bold">{c.name}</h2>
+                <LeaderTag name={councilLeaderName[c.id]} />
+              </div>
               <div className="space-y-2">
                 {visibleGovs(c.id).map((g) => (
                   <div key={g.id} className="ml-4 rounded-lg border border-zinc-700 p-3">
-                    <div className="mb-2 flex items-center gap-2">
-                      <span className="text-sm font-semibold">{g.name}</span>
-                      <StatusBadge value={g.area} />
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <span className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">{g.name}</span>
+                        <StatusBadge value={g.area} />
+                      </span>
+                      <LeaderTag name={govLeaderName[g.id]} />
                     </div>
                     <div className="space-y-1">
                       {allBacentas
@@ -89,8 +111,11 @@ export function ManageClient({
                             <span className="flex items-center gap-2 truncate">
                               {b.name} <StatusBadge value={b.area} />
                             </span>
-                            <span className="shrink-0 text-xs text-zinc-500">
-                              {countByBacenta.get(b.id) ?? 0} members
+                            <span className="flex shrink-0 items-center gap-2">
+                              <LeaderTag name={bacentaLeaderName[b.id]} />
+                              <span className="text-xs text-zinc-500">
+                                {countByBacenta.get(b.id) ?? 0} members
+                              </span>
                             </span>
                           </Link>
                         ))}

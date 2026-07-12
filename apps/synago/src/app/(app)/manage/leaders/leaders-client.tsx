@@ -3,13 +3,12 @@
 import { useMemo, useRef, useState } from "react";
 import { Modal } from "@qcc/ui/components/modal";
 import { ROLE_LABELS, type Role } from "@qcc/core/permissions";
-import { promoteLeaderAction, setLeaderActiveAction } from "../actions";
+import { promoteLeaderAction, removeLeaderAction } from "../actions";
 
 interface LeaderRow {
   id: string;
   role: Role;
   username: string;
-  isActive: boolean;
   fullName: string;
   scopeLabel: string;
 }
@@ -52,6 +51,8 @@ export function LeadersClient({
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [role, setRole] = useState<Role | "">("");
+  const [removeTarget, setRemoveTarget] = useState<LeaderRow | null>(null);
+  const [removing, setRemoving] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const filteredLeaders = useMemo(() => {
@@ -75,6 +76,19 @@ export function LeadersClient({
     const formData = new FormData(e.currentTarget);
     await promoteLeaderAction(formData);
     closeModal();
+  };
+
+  const handleRemove = async () => {
+    if (!removeTarget) return;
+    setRemoving(true);
+    try {
+      const formData = new FormData();
+      formData.set("leaderId", removeTarget.id);
+      await removeLeaderAction(formData);
+      setRemoveTarget(null);
+    } finally {
+      setRemoving(false);
+    }
   };
 
   return (
@@ -110,17 +124,12 @@ export function LeadersClient({
                 <div className="truncate text-xs text-zinc-500">
                   {ROLE_LABELS[l.role]}
                   {l.scopeLabel ? ` · ${l.scopeLabel}` : ""}
-                  {!l.isActive ? " · DEACTIVATED" : ""}
                 </div>
               </div>
               {l.id !== actorId ? (
-                <form action={setLeaderActiveAction} className="shrink-0">
-                  <input type="hidden" name="leaderId" value={l.id} />
-                  <input type="hidden" name="active" value={String(!l.isActive)} />
-                  <button className={l.isActive ? "btn-danger" : "btn-secondary"}>
-                    {l.isActive ? "Deactivate" : "Reactivate"}
-                  </button>
-                </form>
+                <button onClick={() => setRemoveTarget(l)} className="btn-danger shrink-0">
+                  Remove
+                </button>
               ) : null}
             </div>
           ))
@@ -248,6 +257,41 @@ export function LeadersClient({
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {removeTarget && (
+        <Modal title="Remove leader" onClose={() => setRemoveTarget(null)}>
+          <div className="space-y-4">
+            <p className="text-sm text-zinc-300">
+              Remove <span className="font-semibold">{removeTarget.fullName}</span> as{" "}
+              {ROLE_LABELS[removeTarget.role]}
+              {removeTarget.scopeLabel ? ` of ${removeTarget.scopeLabel}` : ""}?
+            </p>
+            <p className="text-xs text-zinc-500">
+              Their position becomes vacant immediately and can be assigned to
+              someone else. They lose login access. Records they've already
+              submitted stay attached to the bacenta and are not affected.
+            </p>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setRemoveTarget(null)}
+                disabled={removing}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRemove}
+                disabled={removing}
+                className="btn-danger"
+              >
+                {removing ? "Removing…" : "Remove leader"}
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

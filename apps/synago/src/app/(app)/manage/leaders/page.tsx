@@ -21,7 +21,6 @@ export default async function LeadersPage() {
         id: leaders.id,
         role: leaders.role,
         username: leaders.username,
-        isActive: leaders.isActive,
         bacentaId: leaders.bacentaId,
         governorshipId: leaders.governorshipId,
         councilId: leaders.councilId,
@@ -29,7 +28,8 @@ export default async function LeadersPage() {
         lastName: members.lastName,
       })
       .from(leaders)
-      .innerJoin(members, eq(leaders.memberId, members.id)),
+      .innerJoin(members, eq(leaders.memberId, members.id))
+      .where(eq(leaders.isActive, true)),
     db.select().from(councils).orderBy(councils.name),
     db.select().from(governorships).orderBy(governorships.name),
     scopedIds.length
@@ -85,7 +85,6 @@ export default async function LeadersPage() {
       id: l.id,
       role: l.role as Role,
       username: l.username,
-      isActive: l.isActive,
       fullName: `${l.firstName} ${l.lastName}`,
       scopeLabel: l.bacentaId
         ? (bacentaName.get(l.bacentaId) ?? "bacenta")

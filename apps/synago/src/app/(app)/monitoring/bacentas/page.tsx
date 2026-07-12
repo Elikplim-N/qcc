@@ -70,16 +70,17 @@ export default async function BacentasMonitoringPage() {
         )
     : [];
 
-  const fellowshipIds = new Set(days.map((d) => d.bacentaId));
   const premobIds = new Set(premobs.map((p) => p.bacentaId));
-  const otwIds = new Set(otws.map((o) => o.bacentaId));
+  const otwSubmittedIds = new Set(otws.filter((o) => o.status === "submitted").map((o) => o.bacentaId));
+  const otwRejectedIds = new Set(otws.filter((o) => o.status === "rejected").map((o) => o.bacentaId));
   const arrivedIds = new Set(otws.filter((o) => o.status === "approved").map((o) => o.bacentaId));
 
-  const noActivity = scoped.filter((b) => !fellowshipIds.has(b.id) && !premobIds.has(b.id)).length;
-  const mobilising = scoped.filter((b) => premobIds.has(b.id) && !otwIds.has(b.id)).length;
-  const onTheWay = scoped.filter((b) => otwIds.has(b.id) && !arrivedIds.has(b.id)).length;
-  const didntBus = scoped.filter((b) => fellowshipIds.has(b.id) && !premobIds.has(b.id) && !otwIds.has(b.id)).length;
-  const arrived = Array.from(arrivedIds).length;
+  // Categories based on progression: Premob → Otw (Area 2) or Mobilised (Area 1)
+  const noActivity = scoped.filter((b) => !premobIds.has(b.id)).length;
+  const mobilising = scoped.filter((b) => premobIds.has(b.id) && !otwSubmittedIds.has(b.id) && !otwRejectedIds.has(b.id) && !arrivedIds.has(b.id)).length;
+  const onTheWay = scoped.filter((b) => otwSubmittedIds.has(b.id)).length;
+  const didntBus = scoped.filter((b) => otwRejectedIds.has(b.id)).length;
+  const arrived = arrivedIds.size;
 
   return (
     <div className="space-y-6">

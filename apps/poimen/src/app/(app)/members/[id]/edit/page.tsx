@@ -30,8 +30,9 @@ export default async function EditMemberPage({
 
   const isSelf = m.id === leader.memberId;
   const isCreator = m.createdByLeaderId === leader.id;
+  const isUnassigned = !m.bacentaId;
   const allowed =
-    leader.role === "chief_admin" || isSelf || isCreator || (scope && canManageMembersOf(leader, scope));
+    leader.role === "chief_admin" || isSelf || isCreator || isUnassigned || (scope && canManageMembersOf(leader, scope));
   if (!allowed) {
     return (
       <p className="card text-sm text-zinc-400">

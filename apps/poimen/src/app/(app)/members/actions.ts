@@ -82,11 +82,12 @@ export async function updateMemberAction(formData: FormData) {
   const leader = await requireLeader();
   const isSelf = existing.id === leader.memberId;
   const isCreator = existing.createdByLeaderId === leader.id;
+  const isUnassigned = !existing.bacentaId;
 
   const currentBacentaId = existing.bacentaId;
   const targetBacentaId = str(formData, "bacentaId");
 
-  if (!isSelf && !isCreator && leader.role !== "chief_admin") {
+  if (!isSelf && !isCreator && !isUnassigned && leader.role !== "chief_admin") {
     if (targetBacentaId) {
       const scope = await getBacentaScope(targetBacentaId);
       if (!scope || !canManageMembersOf(leader, scope)) {
@@ -97,6 +98,15 @@ export async function updateMemberAction(formData: FormData) {
       const src = await getBacentaScope(currentBacentaId);
       if (!src || !canManageMembersOf(leader, src)) {
         throw new Error("You cannot move a member out of a bacenta you do not oversee.");
+      }
+    }
+  } else if (isUnassigned && !isSelf && leader.role !== "chief_admin") {
+    // If the member is currently unassigned, the leader is trying to claim them.
+    // They must oversee the target bacenta they are claiming them into!
+    if (targetBacentaId) {
+      const scope = await getBacentaScope(targetBacentaId);
+      if (!scope || !canManageMembersOf(leader, scope)) {
+        throw new Error("You do not have permission to claim this member into this bacenta.");
       }
     }
   }

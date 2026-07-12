@@ -177,3 +177,38 @@ export async function changePasswordAction(formData: FormData) {
   revalidatePath(`/members/${leader.memberId}`);
   redirect(`/members/${leader.memberId}`);
 }
+
+export async function deleteMemberAction(formData: FormData) {
+  const leader = await requireLeader();
+  const memberId = String(formData.get("memberId") ?? "");
+  if (!memberId) throw new Error("Missing member ID.");
+
+  const existing = await db.query.members.findFirst({
+    where: eq(members.id, memberId),
+  });
+  if (!existing) throw new Error("Member not found.");
+
+  const scope = existing.bacentaId ? await getBacentaScope(existing.bacentaId) : null;
+
+  const isCreator = existing.createdByLeaderId === leader.id;
+  const isUnassigned = !existing.bacentaId;
+
+  // Authorization check: Chief admin, creator of member, unassigned member, or oversaw scope.
+  const allowed =
+    leader.role === "chief_admin" ||
+    isCreator ||
+    isUnassigned ||
+    (scope && canManageMembersOf(leader, scope));
+
+  if (!allowed) {
+    throw new Error("You do not have permission to delete this member.");
+  }
+
+  await db.delete(members).where(eq(members.id, memberId));
+  await logAudit("member_deleted", leader.id, "member", memberId, {
+    name: `${existing.firstName} ${existing.lastName}`,
+  });
+
+  revalidatePath("/members");
+  redirect("/members");
+}

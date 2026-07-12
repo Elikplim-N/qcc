@@ -14,6 +14,38 @@ import { getScopedBacentas } from "@qcc/core/scope";
 import { serviceWeekOf, formatDate } from "@qcc/core/week";
 import { StatusBadge } from "@qcc/ui/components/status-badge";
 
+const UsersIcon = (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
+const ChurchIcon = (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 21h18" />
+    <path d="M10 21V12a2 2 0 0 1 4 0v9" />
+    <path d="M4 21V10l8-7 8 7v11" />
+  </svg>
+);
+
+const RocketIcon = (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4.5 16.5c-1.5 1.25-2.5 3.5-2.5 3.5s2.25-1 3.5-2.5" />
+    <path d="M12 12l9-9-3 12-6 3-3-3z" />
+    <path d="M9 15l-3-3" />
+  </svg>
+);
+
+const CheckCircleIcon = (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
+  </svg>
+);
+
 export default async function DashboardPage() {
   const leader = await requireLeader();
   const scoped = await getScopedBacentas(leader);
@@ -101,49 +133,83 @@ export default async function DashboardPage() {
   ].includes(leader.role);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">Welcome, {leader.fullName.split(" ")[0]}</h1>
-        <p className="text-sm text-zinc-400">
-          Service week of {formatDate(weekOf)}
-        </p>
+    <div className="space-y-6 animate-[slide-up_0.2s_ease-out]">
+      <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-gradient-to-r from-indigo-950/20 via-zinc-900/60 to-zinc-900/30 p-6 shadow-xl">
+        <div className="relative z-10 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-zinc-100">
+              Welcome back, {leader.fullName.split(" ")[0]}
+            </h1>
+            <p className="text-sm text-zinc-400 font-medium">
+              Overseeing church operations and arrivals for the week.
+            </p>
+          </div>
+          <div className="mt-3 inline-flex items-center gap-2 rounded-lg bg-zinc-950/50 px-3 py-1.5 text-xs font-semibold text-indigo-300 border border-indigo-900/30 md:mt-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            Service week: {formatDate(weekOf)}
+          </div>
+        </div>
+        <div className="absolute right-0 top-0 -mr-16 -mt-16 h-36 w-36 rounded-full bg-indigo-500/10 blur-3xl" />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Members" value={memberCount.n} />
-        <Stat label="Bacentas" value={scoped.length} sub={`${area1} A1 · ${area2} A2`} />
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Stat
+          label="Members"
+          value={memberCount.n}
+          icon={UsersIcon}
+          borderColor="border-t-indigo-500"
+        />
+        <Stat
+          label="Bacentas"
+          value={scoped.length}
+          sub={`${area1} A1 · ${area2} A2`}
+          icon={ChurchIcon}
+          borderColor="border-t-violet-500"
+        />
         <Stat
           label="Pre-mob this week"
           value={`${premobDone.size}/${scoped.length}`}
           href={leader.role === "bacenta_leader" ? "/arrivals" : "/arrivals/monitor"}
+          icon={RocketIcon}
+          borderColor="border-t-amber-500"
         />
         <Stat
           label="Arrived (approved)"
           value={arrivedTotal}
           href="/arrivals/monitor"
+          icon={CheckCircleIcon}
+          borderColor="border-t-emerald-500"
         />
       </div>
 
       {lastDay[0] ? (
-        <div className="card">
-          <div className="mb-1 text-xs uppercase tracking-wide text-zinc-500">
+        <div className="card border-l-2 border-l-indigo-500 hover:border-zinc-700 hover:bg-zinc-900/80 cursor-pointer">
+          <div className="mb-1 text-xs uppercase tracking-wide text-zinc-500 font-semibold">
             Last service attendance — {formatDate(lastDay[0].serviceDate)}
           </div>
-          <div className="text-2xl font-bold">
+          <div className="text-2xl font-bold tracking-tight text-zinc-100">
             {lastDay[0].present}
-            <span className="text-base font-normal text-zinc-400">
+            <span className="text-base font-normal text-zinc-500">
               {" "}
               / {lastDay[0].total} present
             </span>
           </div>
-          <Link href="/attendance" className="mt-2 inline-block text-sm text-zinc-400 underline">
-            View attendance
+          <Link href="/attendance" className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-indigo-400 hover:text-indigo-300 hover:underline">
+            View attendance report
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
           </Link>
         </div>
       ) : isPastoral ? (
         <div className="card text-sm text-zinc-400">
           No service attendance recorded yet.{" "}
-          <Link className="underline" href="/attendance">
+          <Link className="text-indigo-400 hover:text-indigo-300 font-semibold hover:underline" href="/attendance">
             Record the first one
           </Link>
           .
@@ -151,31 +217,43 @@ export default async function DashboardPage() {
       ) : null}
 
       <div className="card">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-400">
+        <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500">
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="14" y="14" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
+          </svg>
           This week by bacenta
         </h2>
-        <div className="space-y-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           {scoped.length === 0 ? (
-            <p className="text-sm text-zinc-500">
-              No bacentas in your scope yet.
-            </p>
+            <div className="empty-state sm:col-span-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600 mb-2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <p className="font-semibold text-zinc-400">No bacentas in your scope yet</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Contact your overseer to get assigned bacentas.</p>
+            </div>
           ) : (
             scoped.map((b) => {
               const otw = otwByBacenta.get(b.id);
               return (
                 <div
                   key={b.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-800 px-3 py-2"
+                  className="card-interactive flex flex-wrap items-center justify-between gap-3 p-3.5 transition-all duration-200"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{b.name}</span>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-sm font-semibold text-zinc-200">{b.name}</span>
                     <StatusBadge value={b.area} />
                   </div>
-                  <div className="flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-3 text-xs">
                     <span
-                      className={
+                      className={`font-semibold ${
                         premobDone.has(b.id) ? "text-emerald-400" : "text-zinc-500"
-                      }
+                      }`}
                     >
                       {premobDone.has(b.id) ? "✓ Pre-mob" : "Pre-mob pending"}
                     </span>
@@ -183,7 +261,7 @@ export default async function DashboardPage() {
                       otw ? (
                         <StatusBadge value={otw.status} />
                       ) : (
-                        <span className="text-zinc-500">No on-the-way</span>
+                        <span className="rounded-full bg-zinc-950 px-2 py-0.5 text-[11px] border border-zinc-800 text-zinc-500 font-medium">No otw</span>
                       )
                     ) : null}
                   </div>
@@ -202,17 +280,24 @@ function Stat({
   value,
   sub,
   href,
+  icon,
+  borderColor,
 }: {
   label: string;
   value: number | string;
   sub?: string;
   href?: string;
+  icon?: React.ReactNode;
+  borderColor?: string;
 }) {
   const body = (
-    <div className="card h-full">
-      <div className="text-xs uppercase tracking-wide text-zinc-500">{label}</div>
-      <div className="mt-1 text-2xl font-bold">{value}</div>
-      {sub ? <div className="text-xs text-zinc-500">{sub}</div> : null}
+    <div className={`card h-full border-t-2 ${borderColor ?? "border-t-zinc-800"} hover:border-zinc-700 hover:bg-zinc-900/40 cursor-pointer`}>
+      <div className="flex items-center justify-between">
+        <div className="text-xs uppercase tracking-wide text-zinc-500 font-semibold">{label}</div>
+        {icon && <div className="text-zinc-400 bg-zinc-950/40 p-1.5 rounded-lg border border-zinc-800/50">{icon}</div>}
+      </div>
+      <div className="mt-2 text-2xl font-bold tracking-tight text-zinc-100">{value}</div>
+      {sub ? <div className="mt-1 text-xs text-zinc-500 font-medium">{sub}</div> : null}
     </div>
   );
   return href ? <Link href={href}>{body}</Link> : body;

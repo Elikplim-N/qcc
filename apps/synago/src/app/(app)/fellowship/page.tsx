@@ -83,7 +83,7 @@ export default async function FellowshipPage() {
       )}
 
       {isBacentaLeader && (
-        <form action={submitFellowshipReportAction} className="card max-w-md space-y-4">
+        <form action={submitFellowshipReportAction} className="card max-w-2xl space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
             Report fellowship
           </h2>
@@ -108,13 +108,37 @@ export default async function FellowshipPage() {
               </select>
             </div>
           )}
-          <div>
-            <label className="label">Date</label>
-            <input type="date" name="attendanceDate" className="input" defaultValue={today} required />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Date of Service</label>
+              <input type="date" name="attendanceDate" className="input" defaultValue={today} required />
+            </div>
+            <div>
+              <label className="label">Attendance</label>
+              <input type="number" name="attendanceCount" className="input" min={0} defaultValue={0} required />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Income (in GHS)</label>
+              <input type="number" name="incomeGhs" className="input" min={0} step="0.01" defaultValue={0} required />
+            </div>
+            <div>
+              <label className="label">Number of Tithers</label>
+              <input type="number" name="tithersCount" className="input" min={0} defaultValue={0} required />
+            </div>
           </div>
           <div>
             <label className="label">Visitors</label>
             <input type="number" name="visitorCount" className="input" min={0} defaultValue={0} />
+          </div>
+          <div>
+            <label className="label">Foreign Currency and Cheques (if any)</label>
+            <textarea name="foreignCurrencyDetails" className="input" placeholder="Enter details" rows={2} />
+          </div>
+          <div>
+            <label className="label">Upload Fellowship Picture</label>
+            <input type="file" name="photoUrl" className="input" accept="image/*" />
           </div>
           <button className="btn w-full">Submit fellowship report</button>
         </form>

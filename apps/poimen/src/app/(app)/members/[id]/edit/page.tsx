@@ -7,6 +7,7 @@ import { canManageMembersOf } from "@qcc/core/permissions";
 import { getBacentaScope, getScopedBacentas } from "@qcc/core/scope";
 import { updateMemberAction, changePasswordAction, deleteMemberAction } from "../../actions";
 import { MemberForm } from "../../member-form";
+import { DeleteMemberForm } from "./delete-member-form";
 
 export default async function EditMemberPage({
   params,
@@ -85,16 +86,7 @@ export default async function EditMemberPage({
         <p className="text-xs text-zinc-400 leading-relaxed">
           Deleting a member will permanently remove their profile, history, and attendance records from the system. This action cannot be undone.
         </p>
-        <form action={deleteMemberAction} onSubmit={(e) => {
-          if (!confirm("Are you absolutely sure you want to permanently delete this member?")) {
-            e.preventDefault();
-          }
-        }}>
-          <input type="hidden" name="memberId" value={m.id} />
-          <button className="btn-danger w-full sm:w-auto font-bold py-2.5 px-6">
-            Delete Member
-          </button>
-        </form>
+        <DeleteMemberForm action={deleteMemberAction} memberId={m.id} />
       </div>
     </div>
   );

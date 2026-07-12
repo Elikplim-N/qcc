@@ -20,7 +20,7 @@ export default async function AppLayout({
 
   items.push({ href: "/", label: "Dashboard", icon: "home" });
   if (pastoral) {
-    items.push({ href: "/attendance", label: "Attendance", icon: "check" });
+    items.push({ href: "/fellowship", label: "Fellowship", icon: "check" });
   }
   if (leader.role === "bacenta_leader") {
     items.push({ href: "/arrivals", label: "Arrivals", icon: "bus" });

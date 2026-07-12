@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, count, eq, inArray, sql } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 
 import {
   db,
@@ -7,8 +7,6 @@ import {
   members,
   onTheWaySubmissions,
   premobilisations,
-  serviceAttendanceDays,
-  serviceAttendanceEntries,
 } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { getScopedBacentas } from "@qcc/core/scope";
@@ -108,40 +106,18 @@ export default async function DashboardPage() {
           ),
         );
 
-  // Attendance summary for the most recent recorded service date in scope
-  const lastDay = empty
-    ? []
-    : await db
-        .select({
-          serviceDate: serviceAttendanceDays.serviceDate,
-          present: sql<number>`count(*) filter (where ${serviceAttendanceEntries.present})`,
-          total: count(serviceAttendanceEntries.id),
-        })
-        .from(serviceAttendanceDays)
-        .leftJoin(
-          serviceAttendanceEntries,
-          eq(serviceAttendanceEntries.dayId, serviceAttendanceDays.id),
-        )
-        .where(inArray(serviceAttendanceDays.bacentaId, ids))
-        .groupBy(serviceAttendanceDays.serviceDate)
-        .orderBy(sql`${serviceAttendanceDays.serviceDate} desc`)
-        .limit(1);
-
   const area1 = scoped.filter((b) => b.area === "area1").length;
   const area2 = scoped.filter((b) => b.area === "area2").length;
   const area2Ids = new Set(scoped.filter((b) => b.area === "area2").map((b) => b.id));
   const premobDone = new Set(premobs.map((p) => p.bacentaId));
   const otwByBacenta = new Map(otws.map((o) => [o.bacentaId, o]));
+  const otwFilled = new Set(otws.map((o) => o.bacentaId)).size;
+  const onBoardTotal = otws
+    .filter((o) => o.status === "submitted")
+    .reduce((s, o) => s + o.reportedMembers + o.reportedVisitors, 0);
   const arrivedTotal = otws
     .filter((o) => o.status === "approved")
     .reduce((s, o) => s + o.reportedMembers + o.reportedVisitors, 0);
-
-  const isPastoral = [
-    "chief_admin",
-    "council_leader",
-    "governor",
-    "bacenta_leader",
-  ].includes(leader.role);
 
   return (
     <div className="space-y-6 animate-[slide-up_0.2s_ease-out]">
@@ -151,9 +127,6 @@ export default async function DashboardPage() {
             <h1 className="text-2xl font-extrabold tracking-tight text-zinc-100">
               Welcome back, {leader.fullName.split(" ")[0]}
             </h1>
-            <p className="text-sm text-zinc-400 font-medium">
-              Overseeing church operations and arrivals for the week.
-            </p>
           </div>
           <div className="mt-3 inline-flex items-center gap-2 rounded-lg bg-zinc-950/50 px-3 py-1.5 text-xs font-semibold text-indigo-300 border border-indigo-900/30 md:mt-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -168,7 +141,7 @@ export default async function DashboardPage() {
         <div className="absolute right-0 top-0 -mr-16 -mt-16 h-36 w-36 rounded-full bg-indigo-500/10 blur-3xl" />
       </div>
 
-      <div className={`grid grid-cols-2 gap-4 ${isChief ? "md:grid-cols-5" : "md:grid-cols-4"}`}>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Stat
           label="Members"
           value={memberCount.n}
@@ -199,42 +172,30 @@ export default async function DashboardPage() {
           borderColor="border-t-amber-500"
         />
         <Stat
-          label="Arrived (approved)"
+          label="On-the-Way forms"
+          value={`${otwFilled}/${area2}`}
+          sub="Area 2 bacentas"
+          href="/arrivals/monitor"
+          icon={RocketIcon}
+          borderColor="border-t-amber-500"
+        />
+        <Stat
+          label="On the way"
+          value={onBoardTotal}
+          sub="On board, not yet confirmed"
+          href="/arrivals/monitor"
+          icon={RocketIcon}
+          borderColor="border-t-violet-500"
+        />
+        <Stat
+          label="In church (confirmed)"
           value={arrivedTotal}
+          sub="Approved arrivals"
           href="/arrivals/monitor"
           icon={CheckCircleIcon}
           borderColor="border-t-emerald-500"
         />
       </div>
-
-      {lastDay[0] ? (
-        <div className="card border-l-2 border-l-indigo-500 hover:border-zinc-700 hover:bg-zinc-900/80 cursor-pointer">
-          <div className="mb-1 text-xs uppercase tracking-wide text-zinc-500 font-semibold">
-            Last service attendance — {formatDate(lastDay[0].serviceDate)}
-          </div>
-          <div className="text-2xl font-bold tracking-tight text-zinc-100">
-            {lastDay[0].present}
-            <span className="text-base font-normal text-zinc-500">
-              {" "}
-              / {lastDay[0].total} present
-            </span>
-          </div>
-          <Link href="/attendance" className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-indigo-400 hover:text-indigo-300 hover:underline">
-            View attendance report
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </Link>
-        </div>
-      ) : isPastoral ? (
-        <div className="card text-sm text-zinc-400">
-          No service attendance recorded yet.{" "}
-          <Link className="text-indigo-400 hover:text-indigo-300 font-semibold hover:underline" href="/attendance">
-            Record the first one
-          </Link>
-          .
-        </div>
-      ) : null}
 
       <div className="card">
         <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">

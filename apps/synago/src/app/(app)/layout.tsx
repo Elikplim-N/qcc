@@ -21,6 +21,7 @@ export default async function AppLayout({
   items.push({ href: "/", label: "Dashboard", icon: "home" });
   if (pastoral) {
     items.push({ href: "/fellowship", label: "Fellowship", icon: "check" });
+    items.push({ href: "/monitoring/bacentas", label: "Monitoring", icon: "radar" });
   }
   if (leader.role === "bacenta_leader") {
     items.push({ href: "/arrivals", label: "Arrivals", icon: "bus" });
@@ -30,7 +31,7 @@ export default async function AppLayout({
       leader.role,
     )
   ) {
-    items.push({ href: "/arrivals/monitor", label: "Monitor", icon: "radar" });
+    items.push({ href: "/arrivals/monitor", label: "Arrivals", icon: "bus" });
   }
   if (["chief_admin", "council_leader", "governor"].includes(leader.role)) {
     items.push({ href: "/manage", label: "Manage", icon: "grid" });

@@ -308,7 +308,12 @@ export const fellowshipAttendanceDays = pgTable(
     takenByLeaderId: uuid("taken_by_leader_id")
       .notNull()
       .references(() => leaders.id, { onDelete: "cascade" }),
+    attendanceCount: integer("attendance_count").notNull().default(0),
     visitorCount: integer("visitor_count").notNull().default(0),
+    incomePesewas: integer("income_pesewas").notNull().default(0),
+    foreignCurrencyDetails: text("foreign_currency_details"),
+    tithersCount: integer("tithers_count").notNull().default(0),
+    photoUrl: text("photo_url"),
     status: qccSubmissionStatusEnum("status").notNull().default("submitted"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),

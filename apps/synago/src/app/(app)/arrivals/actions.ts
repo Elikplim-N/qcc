@@ -9,6 +9,7 @@ import {
   onTheWaySubmissions,
   premobilisations,
   settings,
+  serviceAttendanceDays,
   type VehicleEntry,
 } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
@@ -189,18 +190,22 @@ export async function reviewOnTheWayAction(formData: FormData) {
   const reportedMembers = formData.get("reportedMembers");
   const reportedVisitors = formData.get("reportedVisitors");
 
+  const finalMembers =
+    reportedMembers !== null && String(reportedMembers) !== ""
+      ? Number(reportedMembers) || 0
+      : sub.reportedMembers;
+
+  const finalVisitors =
+    reportedVisitors !== null && String(reportedVisitors) !== ""
+      ? Number(reportedVisitors) || 0
+      : sub.reportedVisitors;
+
   await db
     .update(onTheWaySubmissions)
     .set({
       vehicles,
-      reportedMembers:
-        reportedMembers !== null && String(reportedMembers) !== ""
-          ? Number(reportedMembers) || 0
-          : sub.reportedMembers,
-      reportedVisitors:
-        reportedVisitors !== null && String(reportedVisitors) !== ""
-          ? Number(reportedVisitors) || 0
-          : sub.reportedVisitors,
+      reportedMembers: finalMembers,
+      reportedVisitors: finalVisitors,
       status: decision as "approved" | "rejected",
       reviewNotes: String(formData.get("reviewNotes") ?? "").trim() || null,
       reviewedByLeaderId: leader.id,
@@ -209,6 +214,35 @@ export async function reviewOnTheWayAction(formData: FormData) {
       updatedAt: new Date(),
     })
     .where(eq(onTheWaySubmissions.id, id));
+
+  // Sync baseline service attendance
+  if (decision === "approved") {
+    const serviceDate = sub.weekOf;
+    const existingDay = await db.query.serviceAttendanceDays.findFirst({
+      where: and(
+        eq(serviceAttendanceDays.bacentaId, sub.bacentaId),
+        eq(serviceAttendanceDays.serviceDate, serviceDate),
+      ),
+    });
+
+    if (!existingDay) {
+      await db.insert(serviceAttendanceDays).values({
+        serviceDate,
+        bacentaId: sub.bacentaId,
+        takenByLeaderId: sub.leaderId,
+        visitorCount: finalVisitors,
+        status: "submitted",
+      });
+    } else {
+      await db
+        .update(serviceAttendanceDays)
+        .set({
+          visitorCount: finalVisitors,
+          updatedAt: new Date(),
+        })
+        .where(eq(serviceAttendanceDays.id, existingDay.id));
+    }
+  }
 
   await logAudit(`arrival_${decision}`, leader.id, "on_the_way", id, {
     bacentaId: sub.bacentaId,

@@ -292,3 +292,70 @@ export const auditLogs = pgTable(
   },
   (t) => [index("qcc_audit_created_idx").on(t.createdAt)],
 );
+
+// ---------------------------------------------------------------------------
+// Fellowship attendance
+// ---------------------------------------------------------------------------
+
+export const fellowshipAttendanceDays = pgTable(
+  "qcc_fellowship_attendance_days",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    attendanceDate: date("attendance_date").notNull(),
+    bacentaId: uuid("bacenta_id")
+      .notNull()
+      .references(() => bacentas.id, { onDelete: "cascade" }),
+    takenByLeaderId: uuid("taken_by_leader_id")
+      .notNull()
+      .references(() => leaders.id, { onDelete: "cascade" }),
+    visitorCount: integer("visitor_count").notNull().default(0),
+    status: qccSubmissionStatusEnum("status").notNull().default("submitted"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("qcc_fad_bacenta_date_uq").on(t.bacentaId, t.attendanceDate),
+  ],
+);
+
+export const fellowshipAttendanceEntries = pgTable(
+  "qcc_fellowship_attendance_entries",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    dayId: uuid("day_id")
+      .notNull()
+      .references(() => fellowshipAttendanceDays.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    present: boolean("present").notNull().default(false),
+    remarks: text("remarks"),
+  },
+  (t) => [
+    uniqueIndex("qcc_fae_day_member_uq").on(t.dayId, t.memberId),
+    index("qcc_fae_member_idx").on(t.memberId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Attendance reports
+// ---------------------------------------------------------------------------
+
+export const attendanceReports = pgTable(
+  "qcc_attendance_reports",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    bacentaId: uuid("bacenta_id")
+      .notNull()
+      .references(() => bacentas.id, { onDelete: "cascade" }),
+    weekOf: date("week_of").notNull(),
+    serviceAttended: integer("service_attended").notNull().default(0),
+    serviceMissed: integer("service_missed").notNull().default(0),
+    fellowshipAttended: integer("fellowship_attended").notNull().default(0),
+    fellowshipMissed: integer("fellowship_missed").notNull().default(0),
+    generatedAt: timestamp("generated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("qcc_ar_bacenta_week_uq").on(t.bacentaId, t.weekOf),
+  ],
+);

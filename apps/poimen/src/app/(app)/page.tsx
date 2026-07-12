@@ -1,10 +1,19 @@
 import Link from "next/link";
-import { count, desc, eq, inArray } from "drizzle-orm";
+import { count, desc, eq, inArray, and, gte, lte, sql } from "drizzle-orm";
 
-import { db, members } from "@qcc/db";
+import {
+  db,
+  members,
+  serviceAttendanceDays,
+  serviceAttendanceEntries,
+  fellowshipAttendanceDays,
+  fellowshipAttendanceEntries,
+} from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { getScopedBacentas } from "@qcc/core/scope";
 import { StatusBadge } from "@qcc/ui/components/status-badge";
+import { serviceWeekOf } from "@qcc/core/week";
+import { getMissingMembers } from "@qcc/core/reports";
 
 const UsersIcon = (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -21,23 +30,14 @@ const HeartIcon = (
   </svg>
 );
 
-const AlertTriangleIcon = (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-    <line x1="12" y1="9" x2="12" y2="13" />
-    <line x1="12" y1="17" x2="12.01" y2="17" />
-  </svg>
-);
+export default async function PoimenDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const sp = await searchParams;
+  const activeTab = sp.tab || "service";
 
-const XCircleIcon = (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <line x1="15" y1="9" x2="9" y2="15" />
-    <line x1="9" y1="9" x2="15" y2="15" />
-  </svg>
-);
-
-export default async function PoimenDashboard() {
   const leader = await requireLeader();
   const scoped = await getScopedBacentas(leader);
   const ids = scoped.map((b) => b.id);
@@ -86,6 +86,79 @@ export default async function PoimenDashboard() {
 
   const byStatus = new Map(rows.map((r) => [r.status, r.n]));
   const total = rows.reduce((s, r) => s + r.n, 0);
+
+  // Statistics Calculation
+  const currentWeek = serviceWeekOf();
+  const empty = ids.length === 0;
+
+  // Query service attendance for this week
+  const serviceDays = empty
+    ? []
+    : await db
+        .select({
+          id: serviceAttendanceDays.id,
+          bacentaId: serviceAttendanceDays.bacentaId,
+          status: serviceAttendanceDays.status,
+          visitorCount: serviceAttendanceDays.visitorCount,
+          present: sql<number>`count(*) filter (where ${serviceAttendanceEntries.present})`,
+          total: sql<number>`count(${serviceAttendanceEntries.id})`,
+        })
+        .from(serviceAttendanceDays)
+        .leftJoin(serviceAttendanceEntries, eq(serviceAttendanceEntries.dayId, serviceAttendanceDays.id))
+        .where(
+          and(
+            inArray(serviceAttendanceDays.bacentaId, ids),
+            eq(serviceAttendanceDays.serviceDate, currentWeek)
+          )
+        )
+        .groupBy(serviceAttendanceDays.id);
+
+  // Query fellowship attendance for this week (Sat-Mon)
+  const sunday = new Date(currentWeek);
+  const sat = new Date(sunday);
+  sat.setDate(sunday.getDate() - 1);
+  const mon = new Date(sunday);
+  mon.setDate(sunday.getDate() + 1);
+  const satStr = sat.toISOString().split("T")[0];
+  const monStr = mon.toISOString().split("T")[0];
+
+  const fellowshipDays = empty
+    ? []
+    : await db
+        .select({
+          id: fellowshipAttendanceDays.id,
+          bacentaId: fellowshipAttendanceDays.bacentaId,
+          status: fellowshipAttendanceDays.status,
+          visitorCount: fellowshipAttendanceDays.visitorCount,
+          present: sql<number>`count(*) filter (where ${fellowshipAttendanceEntries.present})`,
+          total: sql<number>`count(${fellowshipAttendanceEntries.id})`,
+        })
+        .from(fellowshipAttendanceDays)
+        .leftJoin(fellowshipAttendanceEntries, eq(fellowshipAttendanceEntries.dayId, fellowshipAttendanceDays.id))
+        .where(
+          and(
+            inArray(fellowshipAttendanceDays.bacentaId, ids),
+            gte(fellowshipAttendanceDays.attendanceDate, satStr),
+            lte(fellowshipAttendanceDays.attendanceDate, monStr)
+          )
+        )
+        .groupBy(fellowshipAttendanceDays.id);
+
+  const serviceMap = new Map(serviceDays.map((d) => [d.bacentaId, d]));
+  const fellowshipMap = new Map(fellowshipDays.map((d) => [d.bacentaId, d]));
+
+  // Scoped member counts per bacenta
+  const memberCounts = empty
+    ? []
+    : await db
+        .select({ bacentaId: members.bacentaId, count: sql<number>`count(*)` })
+        .from(members)
+        .where(inArray(members.bacentaId, ids))
+        .groupBy(members.bacentaId);
+  const countsMap = new Map(memberCounts.map((c) => [c.bacentaId, c.count]));
+
+  // Flagged members (consecutive absences)
+  const flagged = await getMissingMembers(ids);
 
   return (
     <div className="space-y-6 animate-[slide-up_0.2s_ease-out]">
@@ -144,42 +217,148 @@ export default async function PoimenDashboard() {
         </Link>
       </div>
 
-      <div className="card p-0 overflow-hidden">
-        <h2 className="border-b border-zinc-800/80 px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-          </svg>
-          Recently added members
-        </h2>
-        <div className="divide-y divide-zinc-800/60">
-          {recent.length === 0 ? (
-            <div className="empty-state">
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600 mb-2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              <p className="font-semibold text-zinc-400">No members found</p>
-              <p className="text-xs text-zinc-500 mt-0.5">Click "Add member" above to record one.</p>
-            </div>
-          ) : (
-            recent.map((m) => (
-              <Link
-                key={m.id}
-                href={`/members/${m.id}`}
-                className="flex items-center justify-between px-4 py-3 text-sm transition hover:bg-zinc-900/60 hover:text-white"
-              >
-                <div className="flex flex-col gap-0.5">
-                  <span className="font-semibold text-zinc-200">
-                    {m.firstName} {m.lastName}
-                  </span>
-                  <span className="text-xs text-zinc-500">
-                    {m.bacentaId ? bacentaById.get(m.bacentaId)?.name : "Unassigned"}
-                  </span>
+      {/* Flagged / Missing services warning for Governor or Chief Admin */}
+      {flagged.length > 0 && (
+        <div className="card border-red-950/40 bg-red-950/10 p-4 space-y-3">
+          <div className="flex items-center gap-2.5 text-red-400 font-bold text-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <span>Alert: members missing 2+ consecutive services!</span>
+          </div>
+          <div className="divide-y divide-red-950/20 text-xs">
+            {flagged.slice(0, 5).map((f) => (
+              <div key={f.id} className="py-2 flex justify-between items-center text-zinc-300">
+                <div>
+                  <span className="font-semibold text-zinc-100">{f.firstName} {f.lastName}</span>
+                  <span className="text-zinc-500 ml-1">({f.bacentaName})</span>
                 </div>
-                <StatusBadge value={m.status} />
-              </Link>
-            ))
+                <span className="text-red-400 font-semibold">Missed: {f.missedDates.join(", ")}</span>
+              </div>
+            ))}
+            {flagged.length > 5 && (
+              <div className="pt-2 text-zinc-500 text-center">
+                And {flagged.length - 5} more members...
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tabbed Stats Overview */}
+      <div className="card p-0 overflow-hidden">
+        <div className="flex border-b border-zinc-800 bg-zinc-950/20 px-2">
+          <Link
+            href="/?tab=service"
+            className={`px-4 py-3 text-xs font-bold uppercase tracking-wider transition ${
+              activeTab === "service"
+                ? "border-b-2 border-indigo-500 text-white"
+                : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            Service Stats
+          </Link>
+          <Link
+            href="/?tab=fellowship"
+            className={`px-4 py-3 text-xs font-bold uppercase tracking-wider transition ${
+              activeTab === "fellowship"
+                ? "border-b-2 border-indigo-500 text-white"
+                : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            Fellowship Stats
+          </Link>
+          <Link
+            href="/?tab=recent"
+            className={`px-4 py-3 text-xs font-bold uppercase tracking-wider transition ${
+              activeTab === "recent"
+                ? "border-b-2 border-indigo-500 text-white"
+                : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            Recently Added
+          </Link>
+        </div>
+
+        <div className="divide-y divide-zinc-800/60">
+          {activeTab === "service" && (
+            scoped.length === 0 ? (
+              <p className="p-4 text-xs text-zinc-500 text-center">No bacentas in your scope.</p>
+            ) : (
+              scoped.map((b) => {
+                const s = serviceMap.get(b.id);
+                const totalM = countsMap.get(b.id) ?? 0;
+                const percent = s && s.total > 0 ? Math.round((s.present / s.total) * 100) : 0;
+                return (
+                  <div key={b.id} className="flex items-center justify-between px-4 py-3.5 text-sm">
+                    <div>
+                      <div className="font-semibold text-zinc-200">{b.name}</div>
+                      <div className="text-xs text-zinc-500 mt-0.5">{b.governorshipName}</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-medium text-zinc-400">
+                        {s ? `${s.present}/${s.total} (${percent}%)` : `0/${totalM} (0%)`}
+                      </span>
+                      <StatusBadge value={s ? s.status : "unsubmitted"} />
+                    </div>
+                  </div>
+                );
+              })
+            )
+          )}
+
+          {activeTab === "fellowship" && (
+            scoped.length === 0 ? (
+              <p className="p-4 text-xs text-zinc-500 text-center">No bacentas in your scope.</p>
+            ) : (
+              scoped.map((b) => {
+                const f = fellowshipMap.get(b.id);
+                const totalM = countsMap.get(b.id) ?? 0;
+                const percent = f && f.total > 0 ? Math.round((f.present / f.total) * 100) : 0;
+                return (
+                  <div key={b.id} className="flex items-center justify-between px-4 py-3.5 text-sm">
+                    <div>
+                      <div className="font-semibold text-zinc-200">{b.name}</div>
+                      <div className="text-xs text-zinc-500 mt-0.5">{b.governorshipName}</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-medium text-zinc-400">
+                        {f ? `${f.present}/${f.total} (${percent}%)` : `0/${totalM} (0%)`}
+                      </span>
+                      <StatusBadge value={f ? f.status : "unsubmitted"} />
+                    </div>
+                  </div>
+                );
+              })
+            )
+          )}
+
+          {activeTab === "recent" && (
+            recent.length === 0 ? (
+              <div className="empty-state">
+                <p className="font-semibold text-zinc-400">No members found</p>
+              </div>
+            ) : (
+              recent.map((m) => (
+                <Link
+                  key={m.id}
+                  href={`/members/${m.id}`}
+                  className="flex items-center justify-between px-4 py-3 text-sm transition hover:bg-zinc-900/60 hover:text-white"
+                >
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-semibold text-zinc-200">
+                      {m.firstName} {m.lastName}
+                    </span>
+                    <span className="text-xs text-zinc-500">
+                      {m.bacentaId ? bacentaById.get(m.bacentaId)?.name : "Unassigned"}
+                    </span>
+                  </div>
+                  <StatusBadge value={m.status} />
+                </Link>
+              ))
+            )
           )}
         </div>
       </div>

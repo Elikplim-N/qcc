@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import {
   db,
@@ -8,6 +8,8 @@ import {
   members,
   serviceAttendanceDays,
   serviceAttendanceEntries,
+  fellowshipAttendanceDays,
+  fellowshipAttendanceEntries,
 } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { overseesBacenta, ROLE_LABELS } from "@qcc/core/permissions";
@@ -51,12 +53,42 @@ export default async function MemberProfilePage({
   const canEdit =
     leader.role === "chief_admin" || isSelf || isCreator || isUnassigned || (scope && overseesBacenta(leader, scope));
 
-  const history = await db
-    .select({
-      date: serviceAttendanceDays.serviceDate,
-      present: serviceAttendanceEntries.present,
-      remarks: serviceAttendanceEntries.remarks,
-    })
+  const lastServiceList = await db
+    .select({ date: serviceAttendanceDays.serviceDate })
+    .from(serviceAttendanceEntries)
+    .innerJoin(
+      serviceAttendanceDays,
+      eq(serviceAttendanceEntries.dayId, serviceAttendanceDays.id),
+    )
+    .where(
+      and(
+        eq(serviceAttendanceEntries.memberId, m.id),
+        eq(serviceAttendanceEntries.present, true),
+      ),
+    )
+    .orderBy(desc(serviceAttendanceDays.serviceDate))
+    .limit(1);
+  const lastServiceDate = lastServiceList[0]?.date ?? null;
+
+  const lastFellowshipList = await db
+    .select({ date: fellowshipAttendanceDays.attendanceDate })
+    .from(fellowshipAttendanceEntries)
+    .innerJoin(
+      fellowshipAttendanceDays,
+      eq(fellowshipAttendanceEntries.dayId, fellowshipAttendanceDays.id),
+    )
+    .where(
+      and(
+        eq(fellowshipAttendanceEntries.memberId, m.id),
+        eq(fellowshipAttendanceEntries.present, true),
+      ),
+    )
+    .orderBy(desc(fellowshipAttendanceDays.attendanceDate))
+    .limit(1);
+  const lastFellowshipDate = lastFellowshipList[0]?.date ?? null;
+
+  const allServiceHistory = await db
+    .select({ present: serviceAttendanceEntries.present })
     .from(serviceAttendanceEntries)
     .innerJoin(
       serviceAttendanceDays,
@@ -64,9 +96,16 @@ export default async function MemberProfilePage({
     )
     .where(eq(serviceAttendanceEntries.memberId, m.id))
     .orderBy(desc(serviceAttendanceDays.serviceDate))
-    .limit(12);
+    .limit(10);
 
-  const presentCount = history.filter((h) => h.present).length;
+  let streak = 0;
+  for (const h of allServiceHistory) {
+    if (h.present) {
+      streak++;
+    } else {
+      break;
+    }
+  }
 
   return (
     <div className="max-w-2xl space-y-4">
@@ -124,37 +163,38 @@ export default async function MemberProfilePage({
         {m.notes ? <Field label="Notes" value={m.notes} /> : null}
       </div>
 
-      <div className="card">
-        <div className="mb-2 flex items-center justify-between">
+      <div className="card space-y-4">
+        <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
-            Service attendance
+            Attendance Summary
           </h2>
-          {history.length > 0 ? (
-            <span className="text-xs text-zinc-500">
-              {presentCount}/{history.length} present (last {history.length})
-            </span>
-          ) : null}
+          <Link
+            href={`/members/${m.id}/attendance`}
+            className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition"
+          >
+            View full history &rarr;
+          </Link>
         </div>
-        {history.length === 0 ? (
-          <p className="text-sm text-zinc-500">No attendance records yet.</p>
-        ) : (
-          <div className="space-y-1">
-            {history.map((h, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between rounded border border-zinc-800 px-3 py-1.5 text-sm"
-              >
-                <span>{formatDate(h.date)}</span>
-                <span className={h.present ? "text-emerald-400" : "text-red-400"}>
-                  {h.present ? "Present" : "Absent"}
-                  {h.remarks ? (
-                    <span className="ml-2 text-xs text-zinc-500">{h.remarks}</span>
-                  ) : null}
-                </span>
-              </div>
-            ))}
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-zinc-500 font-bold">Last Service</div>
+            <div className="mt-1 text-sm font-semibold text-zinc-200">
+              {lastServiceDate ? formatDate(lastServiceDate) : "Never"}
+            </div>
           </div>
-        )}
+          <div>
+            <div className="text-xs uppercase tracking-wide text-zinc-500 font-bold">Last Fellowship</div>
+            <div className="mt-1 text-sm font-semibold text-zinc-200">
+              {lastFellowshipDate ? formatDate(lastFellowshipDate) : "Never"}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-zinc-500 font-bold">Service Streak</div>
+            <div className="mt-1 text-sm font-bold text-indigo-400">
+              {streak > 0 ? `${streak} weeks` : "No streak"}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

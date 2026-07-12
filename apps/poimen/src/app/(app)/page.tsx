@@ -109,7 +109,7 @@ export default async function PoimenDashboard() {
         <div className="absolute right-0 top-0 -mr-16 -mt-16 h-36 w-36 rounded-full bg-indigo-500/10 blur-3xl" />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 max-w-md">
         <Stat
           label="Members"
           value={total}
@@ -124,22 +124,6 @@ export default async function PoimenDashboard() {
           icon={HeartIcon}
           borderColor="border-t-emerald-500"
           href="/members?status=committed"
-        />
-        <Stat
-          label="Unstable"
-          value={byStatus.get("unstable") ?? 0}
-          tone="text-amber-400"
-          icon={AlertTriangleIcon}
-          borderColor="border-t-amber-500"
-          href="/members?status=unstable"
-        />
-        <Stat
-          label="Lost"
-          value={byStatus.get("lost") ?? 0}
-          tone="text-red-400"
-          icon={XCircleIcon}
-          borderColor="border-t-red-500"
-          href="/members?status=lost"
         />
       </div>
 

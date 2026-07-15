@@ -21,6 +21,7 @@ export default async function AppLayout({
     items.push({ href: "/members", label: "Members", icon: "users" });
     items.push({ href: "/attendance", label: "Attendance", icon: "check" });
   }
+  items.push({ href: "/profile", label: "Profile", icon: "user" });
 
   const roleLabel =
     leader.role === "bacenta_leader"

@@ -1,6 +1,8 @@
 "use client";
 
-export function AccountSettingsForm({
+// Self-service account settings: change username and/or password.
+// Both fields are optional — blank means "keep current".
+export function AccountForm({
   action,
   username,
 }: {
@@ -25,15 +27,15 @@ export function AccountSettingsForm({
             className="input"
             defaultValue={username}
             minLength={3}
-            placeholder="Leave empty to keep current username"
+            autoCapitalize="none"
           />
           <p className="mt-1 text-xs text-zinc-500">
-            Leave empty to keep your current username
+            Leave unchanged to keep your current username
           </p>
         </div>
 
         <div className="border-t border-zinc-800 pt-4">
-          <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500 block mb-3">
+          <label className="mb-3 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
             Change Password (Optional)
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -44,7 +46,7 @@ export function AccountSettingsForm({
                 type="password"
                 className="input"
                 minLength={8}
-                placeholder="Leave empty to keep current password"
+                placeholder="Leave empty to keep current"
               />
             </div>
             <div>
@@ -54,13 +56,10 @@ export function AccountSettingsForm({
                 type="password"
                 className="input"
                 minLength={8}
-                placeholder="Leave empty to keep current password"
+                placeholder="Leave empty to keep current"
               />
             </div>
           </div>
-          <p className="mt-2 text-xs text-zinc-500">
-            Leave both password fields empty to keep your current password
-          </p>
         </div>
       </div>
 

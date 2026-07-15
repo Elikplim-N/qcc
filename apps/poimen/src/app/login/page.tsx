@@ -20,7 +20,7 @@ export default function LoginPage() {
       <div className="relative z-10 w-full max-w-sm animate-[slide-up_0.2s_ease-out]">
         <div className="mb-8 flex flex-col items-center gap-2 text-center text-zinc-100">
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 px-6 py-4 shadow-xl shadow-indigo-950/10">
-            <QccLogoFull size={64} />
+            <QccLogoFull size={128} />
           </div>
           <h1 className="text-2xl font-black tracking-tight text-zinc-100 mt-2">QCC Poimen</h1>
           <p className="text-sm text-zinc-400 font-medium">Member directory &amp; journeys — leader sign in</p>

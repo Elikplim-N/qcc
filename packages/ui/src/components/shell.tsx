@@ -11,7 +11,7 @@ export type NavItem = {
   icon: IconName;
 };
 
-type IconName = "home" | "users" | "check" | "bus" | "radar" | "grid" | "gear";
+type IconName = "home" | "users" | "check" | "bus" | "radar" | "grid" | "gear" | "user";
 
 function Icon({ name, className }: { name: IconName; className?: string }) {
   const paths: Record<IconName, React.ReactNode> = {
@@ -55,6 +55,12 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
       <>
         <circle cx="12" cy="12" r="3" />
         <path d="M12 2.5v3m0 13v3M4.6 4.6l2.1 2.1m10.6 10.6 2.1 2.1M2.5 12h3m13 0h3M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1" />
+      </>
+    ),
+    user: (
+      <>
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M5 20c.9-3.4 3.7-5.2 7-5.2s6.1 1.8 7 5.2" />
       </>
     ),
   };

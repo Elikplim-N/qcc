@@ -32,7 +32,9 @@ export default async function LeadersPage() {
       .where(eq(leaders.isActive, true)),
     db.select().from(councils).orderBy(councils.name),
     db.select().from(governorships).orderBy(governorships.name),
-    scopedIds.length
+    // Chief admin and council leaders can promote any member church-wide;
+    // governors only members within their own bacentas.
+    ["chief_admin", "council_leader"].includes(actor.role) || scopedIds.length
       ? db
           .select({
             id: members.id,
@@ -42,7 +44,7 @@ export default async function LeadersPage() {
           })
           .from(members)
           .where(
-            actor.role === "chief_admin"
+            ["chief_admin", "council_leader"].includes(actor.role)
               ? undefined
               : inArray(members.bacentaId, scopedIds),
           )

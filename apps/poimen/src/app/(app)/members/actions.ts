@@ -70,6 +70,41 @@ export async function createMemberAction(formData: FormData) {
   redirect(`/members/${row.id}`);
 }
 
+// "Add existing member": a leader takes an unassigned member (already
+// registered on the app, e.g. via public self-registration) into a bacenta
+// they oversee. Members who already belong to a bacenta are never shown to
+// other leaders and cannot be added this way.
+export async function addExistingMemberAction(formData: FormData) {
+  const leader = await requireLeader();
+  const memberId = str(formData, "memberId");
+  const bacentaId = str(formData, "bacentaId");
+  if (!memberId || !bacentaId) throw new Error("Member and bacenta are required.");
+
+  const existing = await db.query.members.findFirst({
+    where: eq(members.id, memberId),
+  });
+  if (!existing) throw new Error("Member not found.");
+  if (existing.bacentaId) {
+    throw new Error("This member already belongs to a bacenta.");
+  }
+
+  const scope = await getBacentaScope(bacentaId);
+  if (!scope || !canManageMembersOf(leader, scope)) {
+    throw new Error("You do not have permission to add members to this bacenta.");
+  }
+
+  await db
+    .update(members)
+    .set({ bacentaId, updatedAt: new Date() })
+    .where(eq(members.id, memberId));
+
+  await logAudit("member_added_to_bacenta", leader.id, "member", memberId, {
+    bacentaId,
+  });
+  revalidatePath("/members");
+  redirect(`/members/${memberId}`);
+}
+
 export async function updateMemberAction(formData: FormData) {
   const memberId = str(formData, "memberId");
   if (!memberId) throw new Error("Missing member.");
@@ -101,12 +136,12 @@ export async function updateMemberAction(formData: FormData) {
       }
     }
   } else if (isUnassigned && !isSelf && leader.role !== "chief_admin") {
-    // If the member is currently unassigned, the leader is trying to claim them.
-    // They must oversee the target bacenta they are claiming them into!
+    // If the member is currently unassigned, the leader is adding them to a
+    // bacenta. They must oversee the target bacenta.
     if (targetBacentaId) {
       const scope = await getBacentaScope(targetBacentaId);
       if (!scope || !canManageMembersOf(leader, scope)) {
-        throw new Error("You do not have permission to claim this member into this bacenta.");
+        throw new Error("You do not have permission to add this member to this bacenta.");
       }
     }
   }

@@ -20,7 +20,12 @@ export default async function MembersPage({
   const tableView = view === "table";
 
   const filters: SQL[] = [];
-  if (leader.role !== "chief_admin") {
+  // Chief admin and council leaders see all members (council leaders need
+  // church-wide visibility to promote members). Other leaders only see
+  // members of bacentas they oversee, plus unassigned members when searching
+  // — members of someone else's bacenta never appear in their list or search.
+  const seesAll = leader.role === "chief_admin" || leader.role === "council_leader";
+  if (!seesAll) {
     const listFilters: SQL[] = [];
     if (ids.length > 0) {
       listFilters.push(inArray(members.bacentaId, ids));
@@ -32,7 +37,7 @@ export default async function MembersPage({
       filters.push(or(...listFilters)!);
     }
   }
-  if (bacenta && (leader.role === "chief_admin" || ids.includes(bacenta))) {
+  if (bacenta && (seesAll || ids.includes(bacenta))) {
     filters.push(inArray(members.bacentaId, [bacenta]));
   }
   if (status && ["committed", "unstable", "lost"].includes(status)) {

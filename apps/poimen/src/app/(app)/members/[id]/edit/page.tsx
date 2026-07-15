@@ -5,10 +5,10 @@ import { db, members, leaders } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { canManageMembersOf } from "@qcc/core/permissions";
 import { getBacentaScope, getScopedBacentas } from "@qcc/core/scope";
-import { updateMemberAction, changePasswordAction, deleteMemberAction, updateUsernameAndPasswordAction } from "../../actions";
+import { updateMemberAction, deleteMemberAction, updateUsernameAndPasswordAction } from "../../actions";
 import { MemberForm } from "../../member-form";
 import { DeleteMemberForm } from "./delete-member-form";
-import { AccountSettingsForm } from "./account-settings-form";
+import { AccountForm } from "@qcc/ui/components/account-form";
 
 export default async function EditMemberPage({
   params,
@@ -60,7 +60,7 @@ export default async function EditMemberPage({
       </div>
 
       {isSelf && leaderRow ? (
-        <AccountSettingsForm
+        <AccountForm
           action={updateUsernameAndPasswordAction}
           username={leaderRow.username}
         />

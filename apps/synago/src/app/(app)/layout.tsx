@@ -39,6 +39,7 @@ export default async function AppLayout({
   if (["chief_admin", "arrivals_admin"].includes(leader.role)) {
     items.push({ href: "/settings", label: "Settings", icon: "gear" });
   }
+  items.push({ href: "/profile", label: "Profile", icon: "user" });
 
   const roleLabel =
     leader.role === "bacenta_leader"

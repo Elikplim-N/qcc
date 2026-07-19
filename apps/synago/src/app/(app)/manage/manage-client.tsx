@@ -55,15 +55,61 @@ export function ManageClient({
   scopedMembers,
 }: ManageClientProps) {
   const [openModal, setOpenModal] = useState<string | null>(null);
+  const [govName, setGovName] = useState("");
+  const [bacentaName, setBacentaName] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const councilFormRef = useRef<HTMLFormElement>(null);
   const govFormRef = useRef<HTMLFormElement>(null);
   const bacentaFormRef = useRef<HTMLFormElement>(null);
 
+  const handleGovMemberSelect = (memberId: string) => {
+    if (memberId) {
+      const member = scopedMembers.find((m) => m.id === memberId);
+      if (member) {
+        setGovName(`${member.firstName} ${member.lastName}`);
+      }
+    }
+  };
+
+  const handleBacentaMemberSelect = (memberId: string) => {
+    if (memberId) {
+      const member = scopedMembers.find((m) => m.id === memberId);
+      if (member) {
+        setBacentaName(`${member.firstName} ${member.lastName}`);
+      }
+    }
+  };
+
+  const handleDeleteBacenta = (id: string, name: string) => {
+    setDeleteTarget({ id, name });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await fetch(`/api/bacentas/${deleteTarget.id}`, { method: "DELETE" });
+      setDeleteTarget(null);
+      // Reload page to refresh data
+      window.location.reload();
+    } catch (error) {
+      console.error("Failed to delete bacenta:", error);
+      setDeleting(false);
+    }
+  };
+
   const closeModal = (type: string) => {
     setOpenModal(null);
     if (type === "council" && councilFormRef.current) councilFormRef.current.reset();
-    if (type === "gov" && govFormRef.current) govFormRef.current.reset();
-    if (type === "bacenta" && bacentaFormRef.current) bacentaFormRef.current.reset();
+    if (type === "gov") {
+      if (govFormRef.current) govFormRef.current.reset();
+      setGovName("");
+    }
+    if (type === "bacenta") {
+      if (bacentaFormRef.current) bacentaFormRef.current.reset();
+      setBacentaName("");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent, action: any, type: string) => {
@@ -117,10 +163,18 @@ export function ManageClient({
                     <LeaderTag name={b.leaderName} />
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-zinc-400">{b.memberCount}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right">
+                  <td className="whitespace-nowrap px-4 py-3 text-right space-x-2">
                     <Link href={`/manage/bacentas/${b.id}`} className="text-indigo-400 hover:underline">
                       Edit →
                     </Link>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteBacenta(b.id, b.name)}
+                      className="text-red-400 hover:text-red-300 inline"
+                      title="Delete bacenta"
+                    >
+                      🗑️
+                    </button>
                   </td>
                 </tr>
               ))
@@ -222,6 +276,8 @@ export function ManageClient({
                 name="name"
                 placeholder="Enter governorship name"
                 className="input"
+                value={govName}
+                onChange={(e) => setGovName(e.target.value)}
                 required
               />
             </div>
@@ -234,7 +290,12 @@ export function ManageClient({
             </div>
             <div>
               <label className="label">Governor (member)</label>
-              <select name="memberId" className="input" defaultValue="">
+              <select
+                name="memberId"
+                className="input"
+                defaultValue=""
+                onChange={(e) => handleGovMemberSelect(e.target.value)}
+              >
                 <option value="">— (optional, assign later)</option>
                 {scopedMembers.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -289,6 +350,8 @@ export function ManageClient({
                 name="name"
                 placeholder="Enter bacenta name"
                 className="input"
+                value={bacentaName}
+                onChange={(e) => setBacentaName(e.target.value)}
                 required
               />
             </div>
@@ -301,7 +364,12 @@ export function ManageClient({
             </div>
             <div>
               <label className="label">Leader (member)</label>
-              <select name="memberId" className="input" defaultValue="">
+              <select
+                name="memberId"
+                className="input"
+                defaultValue=""
+                onChange={(e) => handleBacentaMemberSelect(e.target.value)}
+              >
                 <option value="">— (optional, assign later)</option>
                 {scopedMembers.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -323,6 +391,40 @@ export function ManageClient({
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {deleteTarget && (
+        <Modal
+          title="Delete bacenta"
+          onClose={() => !deleting && setDeleteTarget(null)}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-zinc-300">
+              Delete <span className="font-semibold">{deleteTarget.name}</span>?
+            </p>
+            <p className="text-xs text-zinc-500">
+              This action cannot be undone. All members and records associated with this bacenta will be permanently deleted.
+            </p>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="btn-danger"
+              >
+                {deleting ? "Deleting…" : "Delete bacenta"}
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

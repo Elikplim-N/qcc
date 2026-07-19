@@ -1,8 +1,9 @@
-import { count, eq } from "drizzle-orm";
+import { count, eq, inArray } from "drizzle-orm";
 
 import { db, bacentas, councils, governorships, leaders, members } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { canCreateCouncil } from "@qcc/core/permissions";
+import { getScopedBacentas } from "@qcc/core/scope";
 import { ManageClient } from "./manage-client";
 
 export default async function ManagePage() {
@@ -11,7 +12,10 @@ export default async function ManagePage() {
     return <p className="card text-sm text-zinc-400">Outside your role.</p>;
   }
 
-  const [allCouncils, allGovs, allBacentas, memberCounts, activeLeaders] = await Promise.all([
+  const scoped = await getScopedBacentas(leader);
+  const scopedIds = scoped.map((b) => b.id);
+
+  const [allCouncils, allGovs, allBacentas, memberCounts, activeLeaders, scopedMembers] = await Promise.all([
     db.select().from(councils).orderBy(councils.name),
     db.select().from(governorships).orderBy(governorships.name),
     db.select().from(bacentas).orderBy(bacentas.name),
@@ -28,6 +32,23 @@ export default async function ManagePage() {
       .from(leaders)
       .innerJoin(members, eq(leaders.memberId, members.id))
       .where(eq(leaders.isActive, true)),
+    ["chief_admin", "council_leader"].includes(leader.role) || scopedIds.length
+      ? db
+          .select({
+            id: members.id,
+            firstName: members.firstName,
+            lastName: members.lastName,
+            phoneNumber: members.phoneNumber,
+          })
+          .from(members)
+          .where(
+            ["chief_admin", "council_leader"].includes(leader.role)
+              ? undefined
+              : inArray(members.bacentaId, scopedIds),
+          )
+          .orderBy(members.firstName)
+          .limit(500)
+      : Promise.resolve([]),
   ]);
   const countByBacenta = new Map(
     memberCounts
@@ -86,6 +107,7 @@ export default async function ManagePage() {
       creatableGovs={creatableGovs}
       canCreateCouncil={canCreateCouncil(leader)}
       canCreateGov={["chief_admin", "council_leader"].includes(leader.role)}
+      scopedMembers={scopedMembers}
     />
   );
 }

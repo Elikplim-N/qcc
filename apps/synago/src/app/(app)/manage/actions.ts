@@ -37,12 +37,62 @@ export async function createGovernorshipAction(formData: FormData) {
   }
   const name = str(formData, "name");
   const area = str(formData, "area") === "area2" ? "area2" : "area1";
+  const memberId = str(formData, "memberId");
   if (!name) throw new Error("Name required.");
   const [row] = await db
     .insert(governorships)
     .values({ name, councilId, area })
     .returning({ id: governorships.id });
   await logAudit("governorship_created", leader.id, "governorship", row.id, { name, area });
+
+  // If a member is selected, promote them to governor
+  if (memberId) {
+    const member = await db.query.members.findFirst({
+      where: eq(members.id, memberId),
+    });
+    if (member) {
+      // Generate username if needed
+      let cleanFirst = member.firstName.toLowerCase().replace(/[^a-z0-9]/g, "");
+      let cleanLast = member.lastName.toLowerCase().replace(/[^a-z0-9]/g, "");
+      let generatedUsername = `${cleanFirst}.${cleanLast}`;
+      let baseUsername = generatedUsername;
+      let suffix = 1;
+      while (true) {
+        const exists = await db.query.leaders.findFirst({
+          where: eq(leaders.username, generatedUsername),
+        });
+        if (!exists) break;
+        generatedUsername = `${baseUsername}${suffix}`;
+        suffix++;
+      }
+
+      const existing = await db.query.leaders.findFirst({
+        where: eq(leaders.memberId, memberId),
+      });
+
+      const values = {
+        role: "governor" as Role,
+        councilId: null,
+        governorshipId: row.id,
+        bacentaId: null,
+        username: generatedUsername,
+        passwordHash: hashPassword("change-me-now"),
+        isActive: true,
+      };
+
+      if (existing) {
+        await db.update(leaders).set(values).where(eq(leaders.id, existing.id));
+        await logAudit("leader_role_updated", leader.id, "leader", existing.id, { role: "governor" });
+      } else {
+        const [leaderRow] = await db
+          .insert(leaders)
+          .values({ memberId, ...values })
+          .returning({ id: leaders.id });
+        await logAudit("leader_promoted", leader.id, "leader", leaderRow.id, { role: "governor" });
+      }
+    }
+  }
+
   revalidatePath("/manage");
 }
 
@@ -62,6 +112,7 @@ export async function createBacentaAction(formData: FormData) {
   }
   const name = str(formData, "name");
   const area = str(formData, "area") === "area2" ? "area2" : "area1";
+  const memberId = str(formData, "memberId");
   if (!name) throw new Error("Name required.");
   const [row] = await db
     .insert(bacentas)
@@ -75,6 +126,55 @@ export async function createBacentaAction(formData: FormData) {
     })
     .returning({ id: bacentas.id });
   await logAudit("bacenta_created", leader.id, "bacenta", row.id, { name, area });
+
+  // If a member is selected, promote them to bacenta_leader
+  if (memberId) {
+    const member = await db.query.members.findFirst({
+      where: eq(members.id, memberId),
+    });
+    if (member) {
+      // Generate username if needed
+      let cleanFirst = member.firstName.toLowerCase().replace(/[^a-z0-9]/g, "");
+      let cleanLast = member.lastName.toLowerCase().replace(/[^a-z0-9]/g, "");
+      let generatedUsername = `${cleanFirst}.${cleanLast}`;
+      let baseUsername = generatedUsername;
+      let suffix = 1;
+      while (true) {
+        const exists = await db.query.leaders.findFirst({
+          where: eq(leaders.username, generatedUsername),
+        });
+        if (!exists) break;
+        generatedUsername = `${baseUsername}${suffix}`;
+        suffix++;
+      }
+
+      const existing = await db.query.leaders.findFirst({
+        where: eq(leaders.memberId, memberId),
+      });
+
+      const values = {
+        role: "bacenta_leader" as Role,
+        councilId: null,
+        governorshipId: null,
+        bacentaId: row.id,
+        username: generatedUsername,
+        passwordHash: hashPassword("change-me-now"),
+        isActive: true,
+      };
+
+      if (existing) {
+        await db.update(leaders).set(values).where(eq(leaders.id, existing.id));
+        await logAudit("leader_role_updated", leader.id, "leader", existing.id, { role: "bacenta_leader" });
+      } else {
+        const [leaderRow] = await db
+          .insert(leaders)
+          .values({ memberId, ...values })
+          .returning({ id: leaders.id });
+        await logAudit("leader_promoted", leader.id, "leader", leaderRow.id, { role: "bacenta_leader" });
+      }
+    }
+  }
+
   revalidatePath("/manage");
 }
 

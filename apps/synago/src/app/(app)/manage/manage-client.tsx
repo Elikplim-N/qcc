@@ -20,12 +20,20 @@ interface BacentaRow {
   leaderName?: string;
 }
 
+interface MemberOption {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+}
+
 interface ManageClientProps {
   visibleBacentas: BacentaRow[];
   creatableCouncils: any[];
   creatableGovs: any[];
   canCreateCouncil: boolean;
   canCreateGov: boolean;
+  scopedMembers: MemberOption[];
 }
 
 function LeaderTag({ name }: { name?: string }) {
@@ -44,6 +52,7 @@ export function ManageClient({
   creatableGovs,
   canCreateCouncil,
   canCreateGov,
+  scopedMembers,
 }: ManageClientProps) {
   const [openModal, setOpenModal] = useState<string | null>(null);
   const councilFormRef = useRef<HTMLFormElement>(null);
@@ -223,6 +232,17 @@ export function ManageClient({
                 <option value="area2">Area 2 (bussed)</option>
               </select>
             </div>
+            <div>
+              <label className="label">Governor (member)</label>
+              <select name="memberId" className="input" defaultValue="">
+                <option value="">— (optional, assign later)</option>
+                {scopedMembers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.firstName} {m.lastName} — {m.phoneNumber}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
@@ -277,6 +297,17 @@ export function ManageClient({
               <select name="area" className="input" defaultValue="area1">
                 <option value="area1">Area 1 (in person)</option>
                 <option value="area2">Area 2 (bussed)</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Leader (member)</label>
+              <select name="memberId" className="input" defaultValue="">
+                <option value="">— (optional, assign later)</option>
+                {scopedMembers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.firstName} {m.lastName} — {m.phoneNumber}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="flex justify-end gap-2">

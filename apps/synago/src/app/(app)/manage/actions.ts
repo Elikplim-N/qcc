@@ -67,8 +67,9 @@ export async function createCouncilAction(formData: FormData) {
 
 export async function createGovernorshipAction(formData: FormData) {
   const leader = await requireLeader();
-  const councilId = str(formData, "councilId");
-  if (!councilId || !canCreateGovernorship(leader, councilId)) {
+  // Empty councilId = chief_admin quick-create, routed to a council later.
+  const councilId = str(formData, "councilId") || null;
+  if (!canCreateGovernorship(leader, councilId)) {
     throw new Error("You cannot create a governorship in this council.");
   }
   const name = str(formData, "name");
@@ -79,7 +80,11 @@ export async function createGovernorshipAction(formData: FormData) {
     .insert(governorships)
     .values({ name, councilId, area })
     .returning({ id: governorships.id });
-  await logAudit("governorship_created", leader.id, "governorship", row.id, { name, area });
+  await logAudit("governorship_created", leader.id, "governorship", row.id, {
+    name,
+    area,
+    councilId,
+  });
 
   // If a member is selected, promote them to governor
   if (memberId) {
@@ -134,15 +139,20 @@ export async function createGovernorshipAction(formData: FormData) {
 
 export async function createBacentaAction(formData: FormData) {
   const leader = await requireLeader();
-  const governorshipId = str(formData, "governorshipId");
+  // Empty governorshipId = chief_admin quick-create, routed to a
+  // governorship later.
+  const governorshipId = str(formData, "governorshipId") || null;
   const gov = governorshipId
     ? await db.query.governorships.findFirst({
         where: eq(governorships.id, governorshipId),
       })
     : null;
   if (
-    !gov ||
-    !canCreateBacenta(leader, { governorshipId: gov.id, councilId: gov.councilId })
+    (governorshipId && !gov) ||
+    !canCreateBacenta(leader, {
+      governorshipId: gov?.id ?? null,
+      councilId: gov?.councilId ?? null,
+    })
   ) {
     throw new Error("You cannot create a bacenta in this governorship.");
   }
@@ -154,14 +164,18 @@ export async function createBacentaAction(formData: FormData) {
     .insert(bacentas)
     .values({
       name,
-      governorshipId: gov.id,
+      governorshipId: gov?.id ?? null,
       area,
       momoNumber: str(formData, "momoNumber") || null,
       momoName: str(formData, "momoName") || null,
       mobileNetwork: str(formData, "mobileNetwork") || null,
     })
     .returning({ id: bacentas.id });
-  await logAudit("bacenta_created", leader.id, "bacenta", row.id, { name, area });
+  await logAudit("bacenta_created", leader.id, "bacenta", row.id, {
+    name,
+    area,
+    governorshipId: gov?.id ?? null,
+  });
 
   // If a member is selected, promote them to bacenta_leader
   if (memberId) {
@@ -214,6 +228,26 @@ export async function createBacentaAction(formData: FormData) {
   revalidatePath("/manage");
 }
 
+// Chief-admin-only: route a governorship created unassigned (no council yet)
+// into a council.
+export async function assignGovernorshipCouncilAction(formData: FormData) {
+  const leader = await requireLeader();
+  if (leader.role !== "chief_admin") {
+    throw new Error("Only Chief Admin can reassign a governorship's council.");
+  }
+  const governorshipId = str(formData, "governorshipId");
+  const councilId = str(formData, "councilId");
+  if (!governorshipId || !councilId) throw new Error("Governorship and council required.");
+  await db
+    .update(governorships)
+    .set({ councilId })
+    .where(eq(governorships.id, governorshipId));
+  await logAudit("governorship_routed", leader.id, "governorship", governorshipId, {
+    councilId,
+  });
+  revalidatePath("/manage");
+}
+
 export async function updateBacentaAction(formData: FormData) {
   const leader = await requireLeader();
   const bacentaId = str(formData, "bacentaId");
@@ -227,6 +261,16 @@ export async function updateBacentaAction(formData: FormData) {
   ) {
     throw new Error("You cannot edit this bacenta.");
   }
+  // Only chief_admin may re-route a bacenta to a different governorship
+  // (e.g. assigning one created unassigned from raw onboarding data).
+  const governorshipIdRaw = formData.get("governorshipId");
+  let governorshipId: string | null | undefined = undefined;
+  if (governorshipIdRaw !== null) {
+    if (leader.role !== "chief_admin") {
+      throw new Error("Only Chief Admin can reassign a bacenta's governorship.");
+    }
+    governorshipId = str(formData, "governorshipId") || null;
+  }
   await db
     .update(bacentas)
     .set({
@@ -235,9 +279,10 @@ export async function updateBacentaAction(formData: FormData) {
       momoNumber: str(formData, "momoNumber") || null,
       momoName: str(formData, "momoName") || null,
       mobileNetwork: str(formData, "mobileNetwork") || null,
+      ...(governorshipId !== undefined ? { governorshipId } : {}),
     })
     .where(eq(bacentas.id, bacentaId));
-  await logAudit("bacenta_updated", leader.id, "bacenta", bacentaId);
+  await logAudit("bacenta_updated", leader.id, "bacenta", bacentaId, { governorshipId });
   revalidatePath("/manage");
   redirect("/manage");
 }
@@ -396,9 +441,11 @@ export async function updateGovernorshipAction(formData: FormData) {
   const governorshipId = str(formData, "governorshipId");
   const name = str(formData, "name");
   const area = str(formData, "area") === "area2" ? "area2" : "area1";
-  const councilId = str(formData, "councilId");
-  if (!governorshipId || !name || !councilId) {
-    throw new Error("Governorship, name and council are required.");
+  const councilId = str(formData, "councilId") || null;
+  const parentGovernorshipId = str(formData, "parentGovernorshipId") || null;
+  if (!governorshipId || !name) throw new Error("Governorship and name required.");
+  if (parentGovernorshipId === governorshipId) {
+    throw new Error("A governorship cannot be its own senior.");
   }
 
   const gov = await db.query.governorships.findFirst({
@@ -408,12 +455,13 @@ export async function updateGovernorshipAction(formData: FormData) {
 
   await db
     .update(governorships)
-    .set({ name, area, councilId })
+    .set({ name, area, councilId, parentGovernorshipId })
     .where(eq(governorships.id, governorshipId));
   await logAudit("governorship_updated", leader.id, "governorship", governorshipId, {
     name,
     area,
     councilId,
+    parentGovernorshipId,
   });
   revalidatePath("/manage");
 }

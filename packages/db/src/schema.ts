@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   date,
   index,
@@ -56,9 +57,18 @@ export const governorships = pgTable(
   {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     name: text("name").notNull(),
-    councilId: uuid("council_id")
-      .notNull()
-      .references(() => councils.id, { onDelete: "cascade" }),
+    // Nullable: chief_admin may quick-create a governorship before deciding
+    // which council it belongs to, and route it later.
+    councilId: uuid("council_id").references(() => councils.id, {
+      onDelete: "cascade",
+    }),
+    // Senior/junior governors: a governorship may sit under another
+    // ("senior") governorship. The senior's governor then oversees all
+    // bacentas of descendant governorships too. Null = top-level.
+    parentGovernorshipId: uuid("parent_governorship_id").references(
+      (): AnyPgColumn => governorships.id,
+      { onDelete: "set null" },
+    ),
     area: qccAreaEnum("area").notNull().default("area1"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
@@ -70,9 +80,11 @@ export const bacentas = pgTable(
   {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     name: text("name").notNull(),
-    governorshipId: uuid("governorship_id")
-      .notNull()
-      .references(() => governorships.id, { onDelete: "cascade" }),
+    // Nullable: chief_admin may quick-create a bacenta before deciding which
+    // governorship it belongs to, and route it later.
+    governorshipId: uuid("governorship_id").references(() => governorships.id, {
+      onDelete: "cascade",
+    }),
     area: qccAreaEnum("area").notNull().default("area1"),
     // Bussing bank details (Area 2)
     momoNumber: text("momo_number"),

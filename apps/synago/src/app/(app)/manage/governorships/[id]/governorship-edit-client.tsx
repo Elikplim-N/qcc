@@ -224,9 +224,11 @@ interface GovernorshipEditClientProps {
     id: string;
     name: string;
     area: string;
-    councilId: string;
+    councilId: string | null;
+    parentGovernorshipId: string | null;
   };
   councils: { id: string; name: string }[];
+  parentOptions: { id: string; name: string }[];
   bacentas: { id: string; name: string; area: string }[];
   currentGovernor: {
     leaderId: string;
@@ -239,6 +241,7 @@ interface GovernorshipEditClientProps {
 export function GovernorshipEditClient({
   governorship,
   councils,
+  parentOptions,
   bacentas,
   currentGovernor,
 }: GovernorshipEditClientProps) {
@@ -345,7 +348,8 @@ export function GovernorshipEditClient({
         </div>
         <div>
           <label className="label">Council</label>
-          <select name="councilId" className="input" defaultValue={governorship.councilId} required>
+          <select name="councilId" className="input" defaultValue={governorship.councilId ?? ""}>
+            <option value="">— Unassigned (route later)</option>
             {councils.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -359,6 +363,25 @@ export function GovernorshipEditClient({
             <option value="area1">Area 1 (in person)</option>
             <option value="area2">Area 2 (bussed)</option>
           </select>
+        </div>
+        <div>
+          <label className="label">Senior governorship (oversees this one)</label>
+          <select
+            name="parentGovernorshipId"
+            className="input"
+            defaultValue={governorship.parentGovernorshipId ?? ""}
+          >
+            <option value="">— None (top-level)</option>
+            {parentOptions.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-zinc-500">
+            The senior governor automatically sees everything under this
+            governorship too. Roles and names stay unchanged.
+          </p>
         </div>
         <button className="btn w-full" disabled={savingDetails}>
           {savingDetails ? "Saving…" : "Save"}

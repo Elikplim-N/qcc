@@ -9,6 +9,7 @@ import {
   createBacentaAction,
   createCouncilAction,
   createGovernorshipAction,
+  assignGovernorshipCouncilAction,
   searchMembersAction,
 } from "./actions";
 
@@ -16,8 +17,8 @@ interface BacentaRow {
   id: string;
   name: string;
   area: string;
-  governorshipName: string;
-  councilName: string;
+  governorshipName: string | null;
+  councilName: string | null;
   memberCount: number;
   leaderName?: string;
 }
@@ -41,6 +42,7 @@ interface ManageClientProps {
   visibleGovs: GovernorshipRow[];
   creatableCouncils: any[];
   creatableGovs: any[];
+  unassignedGovs: { id: string; name: string }[];
   canCreateCouncil: boolean;
   canCreateGov: boolean;
   isChiefAdmin: boolean;
@@ -162,6 +164,7 @@ export function ManageClient({
   visibleGovs,
   creatableCouncils,
   creatableGovs,
+  unassignedGovs,
   canCreateCouncil,
   canCreateGov,
   isChiefAdmin,
@@ -265,7 +268,11 @@ export function ManageClient({
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-zinc-400">
-                      {g.councilName ?? "—"}
+                      {g.councilName ?? (
+                        <span className="badge bg-zinc-800 text-zinc-400 border border-zinc-700">
+                          Unassigned
+                        </span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right">
                       {isChiefAdmin && (
@@ -312,9 +319,19 @@ export function ManageClient({
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-zinc-400">
-                      {b.governorshipName}
+                      {b.governorshipName ?? (
+                        <span className="badge bg-zinc-800 text-zinc-400 border border-zinc-700">
+                          Unassigned
+                        </span>
+                      )}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-zinc-400">{b.councilName}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-zinc-400">
+                      {b.councilName ?? (
+                        <span className="badge bg-zinc-800 text-zinc-400 border border-zinc-700">
+                          Unassigned
+                        </span>
+                      )}
+                    </td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <LeaderTag name={b.leaderName} />
                     </td>
@@ -339,6 +356,39 @@ export function ManageClient({
           </table>
         </div>
       </Collapse>
+
+      {isChiefAdmin && unassignedGovs.length > 0 && (
+        <div className="card space-y-3">
+          <h2 className="text-sm font-semibold text-zinc-300">
+            Unassigned governorships — needs routing
+          </h2>
+          <div className="space-y-2">
+            {unassignedGovs.map((g) => (
+              <form
+                key={g.id}
+                action={assignGovernorshipCouncilAction}
+                className="flex flex-wrap items-center gap-2"
+              >
+                <input type="hidden" name="governorshipId" value={g.id} />
+                <span className="min-w-0 flex-1 text-sm text-zinc-300">{g.name}</span>
+                <select name="councilId" className="input w-auto" required defaultValue="">
+                  <option value="" disabled>
+                    Assign to council…
+                  </option>
+                  {creatableCouncils.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <button type="submit" className="btn-secondary">
+                  Assign
+                </button>
+              </form>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Creation Buttons */}
       <div className="flex flex-wrap gap-2">
@@ -418,9 +468,14 @@ export function ManageClient({
             {errorBanner}
             <div>
               <label className="label">Council</label>
-              <select name="councilId" className="input" required defaultValue="">
-                <option value="" disabled>
-                  Select a council
+              <select
+                name="councilId"
+                className="input"
+                required={!isChiefAdmin}
+                defaultValue=""
+              >
+                <option value="" disabled={!isChiefAdmin}>
+                  {isChiefAdmin ? "— Unassigned (route later)" : "Select a council"}
                 </option>
                 {creatableCouncils.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -481,9 +536,14 @@ export function ManageClient({
             {errorBanner}
             <div>
               <label className="label">Governorship</label>
-              <select name="governorshipId" className="input" required defaultValue="">
-                <option value="" disabled>
-                  Select a governorship
+              <select
+                name="governorshipId"
+                className="input"
+                required={!isChiefAdmin}
+                defaultValue=""
+              >
+                <option value="" disabled={!isChiefAdmin}>
+                  {isChiefAdmin ? "— Unassigned (route later)" : "Select a governorship"}
                 </option>
                 {creatableGovs.map((g) => (
                   <option key={g.id} value={g.id}>

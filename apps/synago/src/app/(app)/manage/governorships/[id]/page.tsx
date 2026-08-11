@@ -22,8 +22,9 @@ export default async function EditGovernorshipPage({
   });
   if (!gov) notFound();
 
-  const [allCouncils, govBacentas, currentGovernorRows] = await Promise.all([
+  const [allCouncils, allGovs, govBacentas, currentGovernorRows] = await Promise.all([
     db.select().from(councils).orderBy(councils.name),
+    db.select().from(governorships).orderBy(governorships.name),
     db
       .select({ id: bacentas.id, name: bacentas.name, area: bacentas.area })
       .from(bacentas)
@@ -55,8 +56,12 @@ export default async function EditGovernorshipPage({
         name: gov.name,
         area: gov.area,
         councilId: gov.councilId,
+        parentGovernorshipId: gov.parentGovernorshipId,
       }}
       councils={allCouncils.map((c) => ({ id: c.id, name: c.name }))}
+      parentOptions={allGovs
+        .filter((g) => g.id !== gov.id)
+        .map((g) => ({ id: g.id, name: g.name }))}
       bacentas={govBacentas}
       currentGovernor={currentGovernorRows[0] ?? null}
     />

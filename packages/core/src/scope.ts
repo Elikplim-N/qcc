@@ -7,9 +7,12 @@ export type ScopedBacenta = {
   id: string;
   name: string;
   area: "area1" | "area2";
-  governorshipId: string;
-  governorshipName: string;
-  councilId: string;
+  // Null when not yet routed under a governorship (chief_admin quick-create).
+  // Every scoped-role filter below requires a real id match, so only
+  // chief_admin/arrivals roles ever see unrouted rows.
+  governorshipId: string | null;
+  governorshipName: string | null;
+  councilId: string | null;
 };
 
 /** All bacentas within this leader's scope (church-wide roles see all). */
@@ -26,7 +29,7 @@ export async function getScopedBacentas(
       councilId: governorships.councilId,
     })
     .from(bacentas)
-    .innerJoin(governorships, eq(bacentas.governorshipId, governorships.id))
+    .leftJoin(governorships, eq(bacentas.governorshipId, governorships.id))
     .orderBy(governorships.name, bacentas.name);
 
   switch (leader.role) {
@@ -36,13 +39,47 @@ export async function getScopedBacentas(
       return rows;
     case "council_leader":
       return rows.filter((r) => r.councilId === leader.councilId);
-    case "governor":
-      return rows.filter((r) => r.governorshipId === leader.governorshipId);
+    case "governor": {
+      // A senior governor also oversees governorships parented (directly or
+      // transitively) under their own — include those bacentas too.
+      const govIds = await getGovernorshipTreeIds(leader.governorshipId);
+      return rows.filter((r) => r.governorshipId && govIds.has(r.governorshipId));
+    }
     case "bacenta_leader":
       return rows.filter((r) => r.id === leader.bacentaId);
     default:
       return [];
   }
+}
+
+/** The governorship plus every descendant parented under it (any depth). */
+export async function getGovernorshipTreeIds(
+  rootId: string | null,
+): Promise<Set<string>> {
+  const ids = new Set<string>();
+  if (!rootId) return ids;
+  ids.add(rootId);
+  const all = await db
+    .select({
+      id: governorships.id,
+      parentGovernorshipId: governorships.parentGovernorshipId,
+    })
+    .from(governorships);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const g of all) {
+      if (
+        g.parentGovernorshipId &&
+        ids.has(g.parentGovernorshipId) &&
+        !ids.has(g.id)
+      ) {
+        ids.add(g.id);
+        grew = true;
+      }
+    }
+  }
+  return ids;
 }
 
 export function scopedBacentaIds(list: ScopedBacenta[]): string[] {
@@ -63,7 +100,7 @@ export async function getBacentaScope(bacentaId: string) {
       mobileNetwork: bacentas.mobileNetwork,
     })
     .from(bacentas)
-    .innerJoin(governorships, eq(bacentas.governorshipId, governorships.id))
+    .leftJoin(governorships, eq(bacentas.governorshipId, governorships.id))
     .where(eq(bacentas.id, bacentaId))
     .limit(1);
   return rows[0] ?? null;

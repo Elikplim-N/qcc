@@ -111,12 +111,23 @@ export default async function MembersPage({
             {unstable ? ` · ${unstable} unstable` : ""}
           </p>
         </div>
-        <Link href="/members/new" className="btn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-          </svg>
-          Add member
-        </Link>
+        <div className="flex items-center gap-2">
+          {leader.role === "chief_admin" && (
+            <Link href="/members/duplicates" className="btn-secondary text-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="2" />
+                <circle cx="15" cy="15" r="6" stroke="currentColor" strokeWidth="2" />
+              </svg>
+              Duplicates
+            </Link>
+          )}
+          <Link href="/members/new" className="btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
+            Add member
+          </Link>
+        </div>
       </div>
 
       {/* Search + filters */}

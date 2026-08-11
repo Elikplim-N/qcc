@@ -51,7 +51,9 @@ export default async function GovernorshipsPage() {
                       {gov.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-zinc-400">{councilById.get(gov.councilId)?.name ?? "—"}</td>
+                  <td className="px-4 py-3 text-zinc-400">
+                    {(gov.councilId && councilById.get(gov.councilId)?.name) ?? "—"}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${gov.area === "area1" ? "bg-violet-950 text-violet-300" : "bg-amber-950 text-amber-300"}`}>
                       {gov.area === "area1" ? "Area 1" : "Area 2"}

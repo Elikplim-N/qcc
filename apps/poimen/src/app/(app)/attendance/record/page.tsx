@@ -12,6 +12,7 @@ import {
 import { requireLeader } from "@qcc/core/auth";
 import { getScopedBacentas } from "@qcc/core/scope";
 import { serviceWeekOf } from "@qcc/core/week";
+import { SubmitButton } from "@qcc/ui/components/submit-button";
 import { saveServiceAttendanceAction, saveFellowshipAttendanceAction } from "../actions";
 
 export default async function RecordAttendancePage({
@@ -85,7 +86,7 @@ export default async function RecordAttendancePage({
             <label className="label">{isService ? "Service Date" : "Fellowship Date"}</label>
             <input name="date" type="date" className="input" defaultValue={selectedDate} />
           </div>
-          <button className="btn w-full">Continue</button>
+          <SubmitButton pendingLabel="Loading…">Continue</SubmitButton>
         </form>
       </div>
     );
@@ -205,9 +206,12 @@ export default async function RecordAttendancePage({
           />
         </div>
 
-        <button className="btn w-full sm:w-auto font-bold py-2.5 px-6">
+        <SubmitButton
+          className="btn w-full sm:w-auto font-bold py-2.5 px-6"
+          pendingLabel="Submitting…"
+        >
           {existingDay ? "Update attendance" : "Submit attendance"}
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

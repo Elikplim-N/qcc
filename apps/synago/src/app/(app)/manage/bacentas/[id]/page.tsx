@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireLeader } from "@qcc/core/auth";
 import { canCreateBacenta } from "@qcc/core/permissions";
 import { getBacentaScope } from "@qcc/core/scope";
+import { SubmitButton } from "@qcc/ui/components/submit-button";
 import { updateBacentaAction } from "../../actions";
 
 export default async function EditBacentaPage({
@@ -65,7 +66,7 @@ export default async function EditBacentaPage({
             </select>
           </div>
         </fieldset>
-        <button className="btn w-full">Save</button>
+        <SubmitButton>Save</SubmitButton>
       </form>
     </div>
   );

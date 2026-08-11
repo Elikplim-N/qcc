@@ -28,8 +28,8 @@ type LeaderLike = {
 
 type BacentaScope = {
   id: string;
-  governorshipId: string;
-  councilId: string;
+  governorshipId: string | null;
+  councilId: string | null;
 };
 
 /** Church-wide pastoral oversight (sees everything). */
@@ -93,20 +93,34 @@ export function canCreateCouncil(l: LeaderLike): boolean {
   return l.role === "chief_admin";
 }
 
-/** Can create a governorship under the given council. */
-export function canCreateGovernorship(l: LeaderLike, councilId: string): boolean {
+/**
+ * Can create a governorship under the given council. `councilId: null` means
+ * a chief_admin quick-create with routing deferred — only chief_admin may do
+ * that.
+ */
+export function canCreateGovernorship(l: LeaderLike, councilId: string | null): boolean {
   if (l.role === "chief_admin") return true;
+  if (councilId === null) return false;
   return l.role === "council_leader" && l.councilId === councilId;
 }
 
-/** Can create a bacenta under the given governorship/council. */
+/**
+ * Can create a bacenta under the given governorship/council. A null
+ * governorshipId (or a governorship that itself has no council yet) means a
+ * chief_admin quick-create with routing deferred — only chief_admin may do
+ * that.
+ */
 export function canCreateBacenta(
   l: LeaderLike,
-  scope: { governorshipId: string; councilId: string },
+  scope: { governorshipId: string | null; councilId: string | null },
 ): boolean {
   if (l.role === "chief_admin") return true;
-  if (l.role === "council_leader") return l.councilId === scope.councilId;
+  if (scope.governorshipId === null) return false;
+  // A governor may create bacentas in their own governorship even before the
+  // governorship has been routed into a council.
   if (l.role === "governor") return l.governorshipId === scope.governorshipId;
+  if (scope.councilId === null) return false;
+  if (l.role === "council_leader") return l.councilId === scope.councilId;
   return false;
 }
 

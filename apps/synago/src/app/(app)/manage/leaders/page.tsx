@@ -1,6 +1,6 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
-import { db, bacentas, councils, governorships, leaders, members } from "@qcc/db";
+import { db, councils, governorships, leaders, members } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { type Role } from "@qcc/core/permissions";
 import { getScopedBacentas } from "@qcc/core/scope";
@@ -15,7 +15,7 @@ export default async function LeadersPage() {
   const scoped = await getScopedBacentas(actor);
   const scopedIds = scoped.map((b) => b.id);
 
-  const [allLeaders, allCouncils, allGovs, scopedMembers] = await Promise.all([
+  const [allLeaders, allCouncils, allGovs] = await Promise.all([
     db
       .select({
         id: leaders.id,
@@ -32,25 +32,6 @@ export default async function LeadersPage() {
       .where(eq(leaders.isActive, true)),
     db.select().from(councils).orderBy(councils.name),
     db.select().from(governorships).orderBy(governorships.name),
-    // Chief admin and council leaders can promote any member church-wide;
-    // governors only members within their own bacentas.
-    ["chief_admin", "council_leader"].includes(actor.role) || scopedIds.length
-      ? db
-          .select({
-            id: members.id,
-            firstName: members.firstName,
-            lastName: members.lastName,
-            phoneNumber: members.phoneNumber,
-          })
-          .from(members)
-          .where(
-            ["chief_admin", "council_leader"].includes(actor.role)
-              ? undefined
-              : inArray(members.bacentaId, scopedIds),
-          )
-          .orderBy(members.firstName)
-          .limit(500)
-      : Promise.resolve([]),
   ]);
 
   const roleOptions: Role[] =
@@ -105,7 +86,6 @@ export default async function LeadersPage() {
       councilOptions={councilOptions}
       govOptions={govOptions}
       scopedBacentas={scoped}
-      scopedMembers={scopedMembers}
     />
   );
 }

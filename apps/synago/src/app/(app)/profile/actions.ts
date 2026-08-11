@@ -8,6 +8,17 @@ import { db, leaders } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { hashPassword } from "@qcc/core/password";
 import { logAudit } from "@qcc/core/scope";
+import { savePushSubscription, removePushSubscription, type PushSubscriptionJSON } from "@qcc/core/notifications";
+
+export async function savePushSubscriptionAction(sub: PushSubscriptionJSON) {
+  const leader = await requireLeader();
+  await savePushSubscription(leader.id, sub);
+}
+
+export async function removePushSubscriptionAction(endpoint: string) {
+  await requireLeader();
+  await removePushSubscription(endpoint);
+}
 
 export async function updateAccountAction(formData: FormData) {
   const leader = await requireLeader();

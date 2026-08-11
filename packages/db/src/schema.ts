@@ -173,6 +173,24 @@ export const sessions = pgTable(
   (t) => [index("qcc_sessions_leader_idx").on(t.leaderId)],
 );
 
+// Browser push subscriptions for the "nudge" reminders (see
+// packages/core/src/notifications.ts). One leader may have several — one
+// per device/browser they've enabled notifications on.
+export const pushSubscriptions = pgTable(
+  "qcc_push_subscriptions",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    leaderId: uuid("leader_id")
+      .notNull()
+      .references(() => leaders.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => [index("qcc_push_subscriptions_leader_idx").on(t.leaderId)],
+);
+
 // ---------------------------------------------------------------------------
 // Arrivals
 // ---------------------------------------------------------------------------

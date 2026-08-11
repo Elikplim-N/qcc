@@ -5,7 +5,12 @@ import { db, members } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
 import { bacentaLeaderTitle, ROLE_LABELS } from "@qcc/core/permissions";
 import { AccountForm } from "@qcc/ui/components/account-form";
-import { updateAccountAction } from "./actions";
+import { PushOptIn } from "@qcc/ui/components/push-opt-in";
+import {
+  updateAccountAction,
+  savePushSubscriptionAction,
+  removePushSubscriptionAction,
+} from "./actions";
 
 export default async function ProfilePage() {
   const leader = await requireLeader();
@@ -54,6 +59,12 @@ export default async function ProfilePage() {
       </div>
 
       <AccountForm action={updateAccountAction} username={leader.username} />
+
+      <PushOptIn
+        vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
+        subscribeAction={savePushSubscriptionAction}
+        unsubscribeAction={removePushSubscriptionAction}
+      />
     </div>
   );
 }

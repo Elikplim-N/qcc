@@ -9,7 +9,11 @@
   "dependencies": {
     "@qcc/db": "*",
     "@supabase/supabase-js": "^2.110.2",
-    "drizzle-orm": "^0.44.7"
+    "drizzle-orm": "^0.44.7",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@types/web-push": "^3.6.4"
   },
   "peerDependencies": {
     "next": "*",

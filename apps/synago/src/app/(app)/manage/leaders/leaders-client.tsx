@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "@qcc/ui/components/modal";
 import { ROLE_LABELS, type Role } from "@qcc/core/permissions";
-import { promoteLeaderAction, removeLeaderAction } from "../actions";
+import { promoteLeaderAction, removeLeaderAction, searchMembersAction } from "../actions";
 
 interface LeaderRow {
   id: string;
@@ -26,7 +26,7 @@ interface MemberOption {
   id: string;
   firstName: string;
   lastName: string;
-  phoneNumber: string;
+  phoneNumber: string | null;
 }
 
 interface LeadersClientProps {
@@ -36,7 +36,99 @@ interface LeadersClientProps {
   councilOptions: Option[];
   govOptions: Option[];
   scopedBacentas: BacentaOption[];
-  scopedMembers: MemberOption[];
+}
+
+/** Typeahead search over members — queries the server live so nobody is
+ * hidden by a stale, capped preload list (the old client-side select was
+ * backed by a query capped at 500 members, which missed anyone past the
+ * cutoff or added after the page loaded). */
+function MemberSearchSelect({
+  name,
+  placeholder = "Search by name or phone…",
+}: {
+  name: string;
+  placeholder?: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+  const [open, setOpen] = useState(false);
+  const [filtered, setFiltered] = useState<MemberOption[]>([]);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setFiltered([]);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const rows = await searchMembersAction(q);
+        if (!cancelled) setFiltered(rows);
+      } catch {
+        if (!cancelled) setFiltered([]);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [query]);
+
+  const select = (m: MemberOption) => {
+    setSelectedId(m.id);
+    setQuery(`${m.firstName} ${m.lastName} — ${m.phoneNumber ?? "no phone"}`);
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative">
+      <input type="hidden" name={name} value={selectedId} />
+      <input
+        className="input pr-8"
+        placeholder={placeholder}
+        value={query}
+        autoFocus
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+          if (selectedId) setSelectedId("");
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+      />
+      {selectedId && (
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedId("");
+            setQuery("");
+          }}
+          aria-label="Clear selected member"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-zinc-500 hover:text-zinc-300"
+        >
+          ✕
+        </button>
+      )}
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-zinc-800 bg-zinc-900 text-sm shadow-xl">
+          {filtered.map((m) => (
+            <li key={m.id}>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => select(m)}
+                className="block w-full px-3 py-2 text-left hover:bg-zinc-800"
+              >
+                {m.firstName} {m.lastName}{" "}
+                <span className="text-zinc-500">— {m.phoneNumber}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export function LeadersClient({
@@ -46,7 +138,6 @@ export function LeadersClient({
   councilOptions,
   govOptions,
   scopedBacentas,
-  scopedMembers,
 }: LeadersClientProps) {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -163,16 +254,18 @@ export function LeadersClient({
 
             <div>
               <label className="label">Member</label>
-              <select name="memberId" className="input" required defaultValue="" autoFocus>
-                <option value="" disabled>
-                  Select member
-                </option>
-                {scopedMembers.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.firstName} {m.lastName} — {m.phoneNumber}
-                  </option>
-                ))}
-              </select>
+              <MemberSearchSelect name="memberId" />
+            </div>
+
+            <div>
+              <label className="label">Username (optional — auto-generated if blank)</label>
+              <input
+                name="username"
+                className="input"
+                placeholder="e.g. john.doe"
+                pattern="[a-z0-9._-]+"
+                title="Lowercase letters, numbers, dots, hyphens only"
+              />
             </div>
 
             <div>

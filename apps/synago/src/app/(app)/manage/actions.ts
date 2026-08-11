@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq, ilike, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -13,10 +13,46 @@ import {
   canCreateGovernorship,
   type Role,
 } from "@qcc/core/permissions";
-import { getBacentaScope, logAudit } from "@qcc/core/scope";
+import { getBacentaScope, getScopedBacentas, scopedBacentaIds, logAudit } from "@qcc/core/scope";
 
 function str(fd: FormData, key: string): string {
   return String(fd.get(key) ?? "").trim();
+}
+
+// Live search over the member list, scoped to what the actor may promote —
+// chief_admin and council_leader search church-wide, governor/bacenta_leader
+// are limited to members in their own bacentas. Replaces the old
+// client-side selects backed by a capped 500-row preload, which silently
+// hid anyone past the cutoff (alphabetically) or added after the page loaded.
+export async function searchMembersAction(query: string): Promise<
+  { id: string; firstName: string; lastName: string; phoneNumber: string | null }[]
+> {
+  const leader = await requireLeader();
+  const q = query.trim().replace(/[%_]/g, "");
+  if (q.length < 2) return [];
+
+  const unrestricted = ["chief_admin", "council_leader"].includes(leader.role);
+  const scopedIds = unrestricted
+    ? undefined
+    : scopedBacentaIds(await getScopedBacentas(leader));
+
+  const nameMatch = ilike(sql`${members.firstName} || ' ' || ${members.lastName}`, `%${q}%`);
+
+  return db
+    .select({
+      id: members.id,
+      firstName: members.firstName,
+      lastName: members.lastName,
+      phoneNumber: members.phoneNumber,
+    })
+    .from(members)
+    .where(
+      scopedIds
+        ? and(nameMatch, inArray(members.bacentaId, scopedIds.length ? scopedIds : [""]))
+        : nameMatch,
+    )
+    .orderBy(members.firstName, members.lastName)
+    .limit(8);
 }
 
 export async function createCouncilAction(formData: FormData) {
@@ -350,4 +386,171 @@ export async function removeLeaderAction(formData: FormData) {
   await logAudit("leader_removed", actor.id, "leader", leaderId);
   revalidatePath("/manage/leaders");
   revalidatePath("/manage");
+}
+
+export async function updateGovernorshipAction(formData: FormData) {
+  const leader = await requireLeader();
+  if (leader.role !== "chief_admin") {
+    throw new Error("Only Chief Admin can edit governorships.");
+  }
+  const governorshipId = str(formData, "governorshipId");
+  const name = str(formData, "name");
+  const area = str(formData, "area") === "area2" ? "area2" : "area1";
+  const councilId = str(formData, "councilId");
+  if (!governorshipId || !name || !councilId) {
+    throw new Error("Governorship, name and council are required.");
+  }
+
+  const gov = await db.query.governorships.findFirst({
+    where: eq(governorships.id, governorshipId),
+  });
+  if (!gov) throw new Error("Governorship not found.");
+
+  await db
+    .update(governorships)
+    .set({ name, area, councilId })
+    .where(eq(governorships.id, governorshipId));
+  await logAudit("governorship_updated", leader.id, "governorship", governorshipId, {
+    name,
+    area,
+    councilId,
+  });
+  revalidatePath("/manage");
+}
+
+export async function deleteGovernorshipAction(formData: FormData) {
+  const leader = await requireLeader();
+  if (leader.role !== "chief_admin") {
+    throw new Error("Only Chief Admin can delete governorships.");
+  }
+  const governorshipId = str(formData, "governorshipId");
+  if (!governorshipId) throw new Error("Governorship required.");
+
+  const gov = await db.query.governorships.findFirst({
+    where: eq(governorships.id, governorshipId),
+  });
+  if (!gov) throw new Error("Governorship not found.");
+
+  // Block deletion while the governorship still has bacentas or a governor —
+  // move/remove those first so nothing is silently orphaned.
+  const bacentaCount = await db.query.bacentas.findMany({
+    where: eq(bacentas.governorshipId, governorshipId),
+  });
+  if (bacentaCount.length > 0) {
+    throw new Error(
+      "Cannot delete a governorship that has bacentas. Move or delete bacentas first.",
+    );
+  }
+
+  const leaderCount = await db.query.leaders.findMany({
+    where: eq(leaders.governorshipId, governorshipId),
+  });
+  if (leaderCount.length > 0) {
+    throw new Error("Cannot delete a governorship that has a governor. Remove the governor first.");
+  }
+
+  await db.delete(governorships).where(eq(governorships.id, governorshipId));
+  await logAudit("governorship_deleted", leader.id, "governorship", governorshipId, {
+    name: gov.name,
+  });
+  revalidatePath("/manage");
+}
+
+export async function updateCouncilAction(formData: FormData) {
+  const leader = await requireLeader();
+  if (leader.role !== "chief_admin") {
+    throw new Error("Only Chief Admin can edit councils.");
+  }
+  const councilId = str(formData, "councilId");
+  const name = str(formData, "name");
+  if (!councilId || !name) throw new Error("Council and name required.");
+
+  const council = await db.query.councils.findFirst({
+    where: eq(councils.id, councilId),
+  });
+  if (!council) throw new Error("Council not found.");
+
+  await db.update(councils).set({ name }).where(eq(councils.id, councilId));
+  await logAudit("council_updated", leader.id, "council", councilId, { name });
+  revalidatePath("/manage");
+}
+
+export async function deleteCouncilAction(formData: FormData) {
+  const leader = await requireLeader();
+  if (leader.role !== "chief_admin") {
+    throw new Error("Only Chief Admin can delete councils.");
+  }
+  const councilId = str(formData, "councilId");
+  if (!councilId) throw new Error("Council required.");
+
+  const council = await db.query.councils.findFirst({
+    where: eq(councils.id, councilId),
+  });
+  if (!council) throw new Error("Council not found.");
+
+  const govCount = await db.query.governorships.findMany({
+    where: eq(governorships.councilId, councilId),
+  });
+  if (govCount.length > 0) {
+    throw new Error("Cannot delete a council that has governorships. Move or delete governorships first.");
+  }
+
+  const leaderCount = await db.query.leaders.findMany({
+    where: eq(leaders.councilId, councilId),
+  });
+  if (leaderCount.length > 0) {
+    throw new Error("Cannot delete a council that has a council leader. Remove the leader first.");
+  }
+
+  await db.delete(councils).where(eq(councils.id, councilId));
+  await logAudit("council_deleted", leader.id, "council", councilId, { name: council.name });
+  revalidatePath("/manage");
+}
+
+// Live search over bacentas by name — used to find and move a misrouted
+// bacenta into the right governorship. Chief-admin only, since only
+// Chief Admin can reassign a bacenta's governorship (see
+// assignBacentaToGovernorshipAction below).
+export async function searchBacentasAction(query: string): Promise<
+  { id: string; name: string; area: string; governorshipName: string | null }[]
+> {
+  const leader = await requireLeader();
+  if (leader.role !== "chief_admin") return [];
+  const q = query.trim().replace(/[%_]/g, "");
+  if (q.length < 2) return [];
+
+  return db
+    .select({
+      id: bacentas.id,
+      name: bacentas.name,
+      area: bacentas.area,
+      governorshipName: governorships.name,
+    })
+    .from(bacentas)
+    .leftJoin(governorships, eq(bacentas.governorshipId, governorships.id))
+    .where(ilike(bacentas.name, `%${q}%`))
+    .orderBy(bacentas.name)
+    .limit(8);
+}
+
+// Chief-admin-only: move a bacenta into a (possibly different) governorship —
+// the quick fix for one enrolled under the wrong governorship.
+export async function assignBacentaToGovernorshipAction(formData: FormData) {
+  const leader = await requireLeader();
+  if (leader.role !== "chief_admin") {
+    throw new Error("Only Chief Admin can reassign a bacenta's governorship.");
+  }
+  const bacentaId = str(formData, "bacentaId");
+  const governorshipId = str(formData, "governorshipId");
+  if (!bacentaId || !governorshipId) throw new Error("Bacenta and governorship required.");
+
+  const bacenta = await db.query.bacentas.findFirst({ where: eq(bacentas.id, bacentaId) });
+  if (!bacenta) throw new Error("Bacenta not found.");
+  const gov = await db.query.governorships.findFirst({ where: eq(governorships.id, governorshipId) });
+  if (!gov) throw new Error("Governorship not found.");
+
+  await db.update(bacentas).set({ governorshipId }).where(eq(bacentas.id, bacentaId));
+  await logAudit("bacenta_updated", leader.id, "bacenta", bacentaId, { governorshipId });
+  revalidatePath("/manage");
+  revalidatePath(`/manage/governorships/${governorshipId}`);
 }

@@ -1,4 +1,4 @@
-import { count, eq, inArray } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 
 import { db, bacentas, councils, governorships, leaders, members } from "@qcc/db";
 import { requireLeader } from "@qcc/core/auth";
@@ -13,9 +13,8 @@ export default async function ManagePage() {
   }
 
   const scoped = await getScopedBacentas(leader);
-  const scopedIds = scoped.map((b) => b.id);
 
-  const [allCouncils, allGovs, allBacentas, memberCounts, activeLeaders, scopedMembers] = await Promise.all([
+  const [allCouncils, allGovs, allBacentas, memberCounts, activeLeaders] = await Promise.all([
     db.select().from(councils).orderBy(councils.name),
     db.select().from(governorships).orderBy(governorships.name),
     db.select().from(bacentas).orderBy(bacentas.name),
@@ -32,23 +31,6 @@ export default async function ManagePage() {
       .from(leaders)
       .innerJoin(members, eq(leaders.memberId, members.id))
       .where(eq(leaders.isActive, true)),
-    ["chief_admin", "council_leader"].includes(leader.role) || scopedIds.length
-      ? db
-          .select({
-            id: members.id,
-            firstName: members.firstName,
-            lastName: members.lastName,
-            phoneNumber: members.phoneNumber,
-          })
-          .from(members)
-          .where(
-            ["chief_admin", "council_leader"].includes(leader.role)
-              ? undefined
-              : inArray(members.bacentaId, scopedIds),
-          )
-          .orderBy(members.firstName)
-          .limit(500)
-      : Promise.resolve([]),
   ]);
   const countByBacenta = new Map(
     memberCounts
@@ -88,6 +70,19 @@ export default async function ManagePage() {
       };
     });
 
+  // Visible governorships — all of them for chief_admin, only within their
+  // council/governorship for others.
+  const visibleGovs = allGovs
+    .filter((g) => visibleGovIds.has(g.id))
+    .map((g) => ({
+      id: g.id,
+      name: g.name,
+      area: g.area,
+      councilName: councilNameById.get(g.councilId) ?? null,
+    }));
+
+  const isChiefAdmin = leader.role === "chief_admin";
+
   // Creation scopes for the forms
   const creatableCouncils =
     leader.role === "chief_admin"
@@ -103,11 +98,12 @@ export default async function ManagePage() {
   return (
     <ManageClient
       visibleBacentas={visibleBacentas}
+      visibleGovs={visibleGovs}
       creatableCouncils={creatableCouncils}
       creatableGovs={creatableGovs}
       canCreateCouncil={canCreateCouncil(leader)}
       canCreateGov={["chief_admin", "council_leader"].includes(leader.role)}
-      scopedMembers={scopedMembers}
+      isChiefAdmin={isChiefAdmin}
     />
   );
 }

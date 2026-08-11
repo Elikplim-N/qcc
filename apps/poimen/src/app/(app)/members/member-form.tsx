@@ -1,4 +1,6 @@
 import { PhotoInput } from "@qcc/ui/components/photo-input";
+import { SubmitButton } from "@qcc/ui/components/submit-button";
+import { FormDraft } from "@qcc/ui/components/form-draft";
 import type { ScopedBacenta } from "@qcc/core/scope";
 
 type MemberValues = {
@@ -34,6 +36,8 @@ export function MemberForm({
   return (
     <form action={action} className="card max-w-2xl space-y-4">
       {values.id ? <input type="hidden" name="memberId" value={values.id} /> : null}
+      {/* New-member entries auto-save on this device until submitted. */}
+      {!values.id && <FormDraft draftKey="member-new" />}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="label">First name *</label>
@@ -110,7 +114,7 @@ export function MemberForm({
         <label className="label">Notes</label>
         <textarea name="notes" className="input" rows={2} defaultValue={values.notes ?? ""} />
       </div>
-      <button className="btn">{submitLabel}</button>
+      <SubmitButton className="btn">{submitLabel}</SubmitButton>
     </form>
   );
 }
